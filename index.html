@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proyecto Fénix</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root{
+    --bg:#0a0a0a; --card:#151515; --border:#262626;
+    --orange:#ff5a1f; --orange-dim:#7a3016;
+    --text:#f2f2f2; --sub:#9a9a9a; --green:#3ecf7a; --red:#ff5252;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  header{padding:20px 20px 0;}
+  .title{font-size:1.6rem;font-weight:800;}
+  .title span{color:var(--orange);}
+  .subtitle{color:var(--sub);font-size:0.95rem;margin-top:4px;display:flex;align-items:center;gap:8px;}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;}
+  .tabs{display:flex;gap:4px;overflow-x:auto;margin-top:18px;border-bottom:1px solid var(--border);padding:0 20px;}
+  .tab{padding:10px 14px;color:var(--sub);font-weight:600;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;font-size:0.95rem;}
+  .tab.active{color:var(--orange);border-color:var(--orange);}
+  main{padding:20px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;}
+  .card .label{color:var(--sub);font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;}
+  .card .value{font-size:1.9rem;font-weight:800;margin-top:6px;}
+  .card .sub{color:var(--sub);font-size:0.82rem;margin-top:4px;}
+  .value.orange{color:var(--orange);}
+  .value.green{color:var(--green);}
+  .value.red{color:var(--red);}
+  .bar-bg{height:6px;background:#262626;border-radius:3px;margin-top:8px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--orange);}
+  .section-title{font-size:1.1rem;font-weight:700;margin:24px 0 12px;}
+  .entry{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;}
+  .entry-top{display:flex;justify-content:space-between;align-items:baseline;}
+  .entry-date{font-weight:700;color:var(--orange);font-size:0.9rem;}
+  .entry-meta{color:var(--sub);font-size:0.8rem;}
+  .entry-body{margin-top:6px;font-size:0.92rem;line-height:1.4;}
+  .macro-row{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;}
+  .macro{font-size:0.82rem;color:var(--sub);}
+  .macro b{color:var(--text);}
+  .chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:12px;}
+  .loading{color:var(--sub);text-align:center;padding:40px;}
+  .day-badge{display:inline-block;background:var(--orange-dim);color:var(--orange);border-radius:6px;padding:2px 8px;font-size:0.75rem;font-weight:700;margin-left:8px;}
+  ::-webkit-scrollbar{height:0;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">PROYECTO <span>FÉNIX</span> 🔥</div>
+  <div class="subtitle"><span class="live-dot"></span><span id="dayCounter">Cargando...</span></div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="dashboard">Dashboard</div>
+  <div class="tab" data-tab="entrenamientos">Entrenamientos</div>
+  <div class="tab" data-tab="nutricion">Nutrición</div>
+  <div class="tab" data-tab="progreso">Progreso</div>
+</div>
+
+<main id="app"><div class="loading">Cargando datos de Supabase...</div></main>
+
+<script>
+const SUPABASE_URL = "https://rgfcfjcltqtaujrfwxla.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnZmNmamNsdHF0YXVqcmZ3eGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Njg0NzgsImV4cCI6MjA5ODI0NDQ3OH0.e8P8y5rMYArxXkI53h-2FQs5P_PJmUhO1gznTBp_pwo";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const PROJECT_START = new Date("2026-06-30T00:00:00");
+const BASELINE_LB = 235.9; // peso inicio, 22 jun, ya en libras
+const META_LB = 198.4;     // 90kg convertido a lb
+
+let state = { dias: [], ejercicios: [], comidas: [], medidas: [] };
+
+function daysSinceStart(){
+  const now = new Date();
+  const diff = Math.floor((now - PROJECT_START) / 86400000) + 1;
+  return Math.max(diff, 0);
+}
+
+function fmt(n, d=1){
+  if(n === null || n === undefined) return "—";
+  return Number(n).toFixed(d);
+}
+
+async function loadAll(){
+  const [dias, ejercicios, comidas, medidas] = await Promise.all([
+    sb.from('fenix_dias').select('*').order('fecha'),
+    sb.from('fenix_ejercicios').select('*').order('fecha', {ascending:false}),
+    sb.from('fenix_comidas').select('*').order('fecha', {ascending:false}),
+    sb.from('fenix_medidas').select('*').order('fecha')
+  ]);
+  state.dias = dias.data || [];
+  state.ejercicios = ejercicios.data || [];
+  state.comidas = comidas.data || [];
+  state.medidas = medidas.data || [];
+}
+
+function renderDayCounter(){
+  const d = daysSinceStart();
+  document.getElementById('dayCounter').textContent = `Día ${d}/60 · En vivo`;
+}
+
+function renderDashboard(){
+  const diasConPeso = state.dias.filter(d => d.peso !== null);
+  const pesoActual = diasConPeso.length ? diasConPeso[diasConPeso.length-1].peso : null;
+  const bajadaTotal = pesoActual !== null ? (BASELINE_LB - pesoActual) : null;
+  const diasGym = state.dias.length;
+  const proteinas = state.dias.filter(d => d.proteina !== null).map(d => d.proteina);
+  const proteinaProm = proteinas.length ? proteinas.reduce((a,b)=>a+b,0)/proteinas.length : null;
+  const aguas = state.dias.filter(d => d.agua !== null).map(d => d.agua);
+  const aguaProm = aguas.length ? aguas.reduce((a,b)=>a+b,0)/aguas.length : null;
+  const bajadaPct = bajadaTotal !== null ? Math.min(Math.max((bajadaTotal / (BASELINE_LB - META_LB)) * 100, 0), 100) : 0;
+
+  const html = `
+    <div class="section-title">Resumen — Peso en libras</div>
+    <div class="grid">
+      <div class="card">
+        <div class="label">Peso Actual</div>
+        <div class="value orange">${fmt(pesoActual)} <span style="font-size:1rem;">lb</span></div>
+        <div class="sub">Meta: ${META_LB} lb</div>
+      </div>
+      <div class="card">
+        <div class="label">Bajada Total</div>
+        <div class="value ${bajadaTotal >= 0 ? 'green':'red'}">${bajadaTotal >= 0 ? '-' : '+'}${fmt(Math.abs(bajadaTotal))} <span style="font-size:1rem;">lb</span></div>
+        <div class="sub">desde el inicio (${BASELINE_LB} lb)</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${bajadaPct}%"></div></div>
+      </div>
+      <div class="card">
+        <div class="label">Días Registrados</div>
+        <div class="value">${diasGym}</div>
+        <div class="sub">de 60 días totales</div>
+      </div>
+      <div class="card">
+        <div class="label">Días Restantes</div>
+        <div class="value">${Math.max(60 - daysSinceStart(),0)}</div>
+        <div class="sub">para el día 60</div>
+      </div>
+      <div class="card">
+        <div class="label">Proteína Promedio</div>
+        <div class="value">${fmt(proteinaProm,0)}g</div>
+        <div class="sub">Objetivo: 140-150g</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min((proteinaProm/150)*100,100)}%"></div></div>
+      </div>
+      <div class="card">
+        <div class="label">Agua Promedio</div>
+        <div class="value">${fmt(aguaProm)}L</div>
+        <div class="sub">Objetivo: 4L</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min((aguaProm/4)*100,100)}%"></div></div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="weightChart" height="180"></canvas>
+    </div>
+  `;
+  document.getElementById('app').innerHTML = html;
+
+  const ctx = document.getElementById('weightChart');
+  const labels = diasConPeso.map(d => d.fecha.slice(5));
+  const data = diasConPeso.map(d => d.peso);
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{
+      label: 'Peso (lb)', data,
+      borderColor: '#ff5a1f', backgroundColor: 'rgba(255,90,31,0.1)',
+      tension: 0.3, fill: true, pointRadius: 3
+    }]},
+    options: {
+      plugins:{legend:{display:false}},
+      scales:{
+        y:{ticks:{color:'#9a9a9a'}, grid:{color:'#262626'}},
+        x:{ticks:{color:'#9a9a9a'}, grid:{display:false}}
+      }
+    }
+  });
+}
+
+function renderEntrenamientos(){
+  const byDate = {};
+  state.ejercicios.forEach(e => {
+    if(!byDate[e.fecha]) byDate[e.fecha] = [];
+    byDate[e.fecha].push(e);
+  });
+  const dates = Object.keys(byDate).sort().reverse();
+  let html = `<div class="section-title">Entrenamientos</div>`;
+  dates.forEach(fecha => {
+    html += `<div class="entry"><div class="entry-date">${fecha}</div>`;
+    byDate[fecha].forEach(e => {
+      html += `<div class="entry-body"><b>${e.ejercicio}</b> — ${e.series}×${e.reps} ${e.peso ? '@ '+fmt(e.peso)+' lb' : ''}</div>`;
+      if(e.notas) html += `<div class="macro">${e.notas}</div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById('app').innerHTML = html || '<div class="loading">Sin entrenamientos registrados</div>';
+}
+
+function renderNutricion(){
+  const byDate = {};
+  state.comidas.forEach(c => {
+    if(!byDate[c.fecha]) byDate[c.fecha] = [];
+    byDate[c.fecha].push(c);
+  });
+  const dates = Object.keys(byDate).sort().reverse();
+  let html = `<div class="section-title">Nutrición</div>`;
+  dates.forEach(fecha => {
+    const items = byDate[fecha];
+    const totalCal = items.reduce((s,i)=>s+(Number(i.calorias)||0),0);
+    const totalProt = items.reduce((s,i)=>s+(Number(i.proteina)||0),0);
+    html += `<div class="entry"><div class="entry-top"><div class="entry-date">${fecha}</div><div class="entry-meta">${fmt(totalCal,0)} kcal · ${fmt(totalProt,0)}g prot</div></div>`;
+    items.forEach(c => {
+      html += `<div class="entry-body"><b>${c.momento}:</b> ${c.comida}</div>`;
+      html += `<div class="macro-row">
+        <span class="macro">Cal: <b>${fmt(c.calorias,0)}</b></span>
+        <span class="macro">Prot: <b>${fmt(c.proteina,0)}g</b></span>
+        <span class="macro">Carb: <b>${c.carbos !== null ? fmt(c.carbos,0)+'g' : '—'}</b></span>
+        <span class="macro">Grasa: <b>${c.grasas !== null ? fmt(c.grasas,0)+'g' : '—'}</b></span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById('app').innerHTML = html || '<div class="loading">Sin comidas registradas</div>';
+}
+
+function renderProgreso(){
+  let html = `<div class="section-title">Medidas Corporales (in / lb)</div>`;
+  if(!state.medidas.length){
+    html += '<div class="loading">Sin medidas registradas</div>';
+  } else {
+    state.medidas.forEach((m,i) => {
+      const prev = state.medidas[i-1];
+      const delta = (key) => {
+        if(!prev || prev[key] === null || m[key] === null) return '';
+        const d = m[key] - prev[key];
+        if(Math.abs(d) < 0.05) return '';
+        const color = d < 0 ? 'green' : 'red';
+        return ` <span class="macro" style="color:var(--${color})">${d>0?'+':''}${fmt(d)}</span>`;
+      };
+      html += `<div class="entry">
+        <div class="entry-date">${m.fecha}</div>
+        <div class="macro-row">
+          <span class="macro">Peso: <b>${fmt(m.peso)} lb</b>${delta('peso')}</span>
+          <span class="macro">Grasa: <b>${fmt(m.grasa_corporal)}%</b>${delta('grasa_corporal')}</span>
+          <span class="macro">Masa Magra: <b>${fmt(m.masa_magra)} lb</b>${delta('masa_magra')}</span>
+        </div>
+        <div class="macro-row">
+          <span class="macro">Cintura: <b>${fmt(m.cintura)}"</b>${delta('cintura')}</span>
+          <span class="macro">Pecho: <b>${fmt(m.pecho)}"</b>${delta('pecho')}</span>
+          <span class="macro">Glúteos: <b>${fmt(m.gluteos)}"</b>${delta('gluteos')}</span>
+        </div>
+        <div class="macro-row">
+          <span class="macro">Bíceps I/D: <b>${fmt(m.biceps_izq)}"/${fmt(m.biceps_der)}"</b></span>
+          <span class="macro">Muslo I/D: <b>${fmt(m.muslo_izq)}"/${fmt(m.muslo_der)}"</b></span>
+        </div>
+        ${m.notas ? `<div class="macro" style="margin-top:6px;">${m.notas}</div>` : ''}
+      </div>`;
+    });
+  }
+  document.getElementById('app').innerHTML = html;
+}
+
+const renderers = { dashboard: renderDashboard, entrenamientos: renderEntrenamientos, nutricion: renderNutricion, progreso: renderProgreso };
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    renderers[tab.dataset.tab]();
+  });
+});
+
+async function init(){
+  renderDayCounter();
+  setInterval(renderDayCounter, 1000);
+  await loadAll();
+  renderDashboard();
+}
+init();
+</script>
+</body>
+</html>
