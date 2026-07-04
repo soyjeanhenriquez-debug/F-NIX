@@ -101,6 +101,17 @@
   #ptr{position:fixed;top:-50px;left:50%;transform:translateX(-50%);width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--orange);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:1.3rem;z-index:80;opacity:0;transition:opacity 0.15s;}
   #ptr.spin{animation:ptrspin 0.7s linear infinite;}
   @keyframes ptrspin{from{transform:translateX(-50%) rotate(0)}to{transform:translateX(-50%) rotate(360deg)}}
+  .daytype{font-size:0.68rem;background:#0a0a0a;color:var(--sub);padding:2px 7px;border-radius:5px;margin-left:6px;font-weight:700;letter-spacing:0.03em;}
+  .cal-badge{font-size:0.82rem;font-weight:700;padding:4px 10px;border-radius:8px;white-space:nowrap;}
+  .cal-badge.ok{background:rgba(62,207,122,0.15);color:var(--green);}
+  .cal-badge.ambar{background:rgba(255,180,0,0.15);color:#ffb400;}
+  .cal-badge.rojo{background:rgba(255,82,82,0.18);color:var(--red);}
+  .prot-line{font-size:0.85rem;color:var(--sub);margin:8px 0 4px;}
+  .guia-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;}
+  .guia-h{font-weight:800;font-size:1rem;margin-bottom:10px;}
+  .guia-ul{margin:0;padding-left:18px;}
+  .guia-ul li{font-size:0.88rem;color:var(--sub);line-height:1.55;margin-bottom:4px;}
+  .guia-ul li b{color:var(--text);}
 </style>
 </head>
 <body>
@@ -115,6 +126,7 @@
   <div class="tab" data-tab="entrenamientos">Entrenamientos</div>
   <div class="tab" data-tab="nutricion">Nutrición</div>
   <div class="tab" data-tab="progreso">Progreso</div>
+  <div class="tab" data-tab="guia">Guía</div>
 </div>
 
 <main id="app"><div class="loading">Cargando datos de Supabase...</div></main>
@@ -530,18 +542,37 @@ function renderNutricion(){
   });
   const dates = Object.keys(byDate).sort().reverse();
   let html = `<div class="section-title">Nutrición</div>`;
+  // dias con pesas registradas (para saber techo calorico)
+  const diasConPesas = new Set(state.ejercicios.filter(e=>!esCardio(e.ejercicio)).map(e=>e.fecha));
   dates.forEach(fecha => {
     const items = byDate[fecha];
     const totalCal = items.reduce((s,i)=>s+(Number(i.calorias)||0),0);
     const totalProt = items.reduce((s,i)=>s+(Number(i.proteina)||0),0);
-    html += `<div class="entry"><div class="entry-top"><div class="entry-date">${fecha}</div><div class="entry-meta">${fmt(totalCal,0)} kcal · ${fmt(totalProt,0)}g prot</div></div>`;
+    const esGym = diasConPesas.has(fecha);
+    const techo = esGym ? 1700 : 1400;
+    // semaforo
+    let sem='ok', msg=`${fmt(totalCal,0)} / ${techo} kcal`;
+    if(totalCal > techo){ sem='rojo'; msg=`${fmt(totalCal,0)} kcal · +${fmt(totalCal-techo,0)} sobre el techo (${techo})`; }
+    else if(totalCal > techo*0.9){ sem='ambar'; msg=`${fmt(totalCal,0)} / ${techo} kcal · cerca del techo`; }
+    // proteina
+    let protMsg = `${fmt(totalProt,0)}g`;
+    if(totalProt > 230) protMsg += ' ⚠️ sobre techo útil';
+    else if(totalProt >= 150) protMsg += ' ✓';
+    else protMsg += ` (faltan ${fmt(150-totalProt,0)}g)`;
+
+    html += `<div class="entry">
+      <div class="entry-top">
+        <div class="entry-date">${fecha} <span class="daytype">${esGym?'GYM':'DESCANSO'}</span></div>
+        <div class="cal-badge ${sem}">${msg}</div>
+      </div>
+      <div class="prot-line">Proteína: <b>${protMsg}</b></div>`;
     items.forEach(c => {
       html += `<div class="entry-body"><b>${c.momento}:</b> ${c.comida}</div>`;
       html += `<div class="macro-row">
         <span class="macro">Cal: <b>${fmt(c.calorias,0)}</b></span>
         <span class="macro">Prot: <b>${fmt(c.proteina,0)}g</b></span>
-        <span class="macro">Carb: <b>${c.carbos !== null ? fmt(c.carbos,0)+'g' : '—'}</b></span>
-        <span class="macro">Grasa: <b>${c.grasas !== null ? fmt(c.grasas,0)+'g' : '—'}</b></span>
+        <span class="macro">Carb: <b>${c.carbos!==null?fmt(c.carbos,0)+'g':'—'}</b></span>
+        <span class="macro">Grasa: <b>${c.grasas!==null?fmt(c.grasas,0)+'g':'—'}</b></span>
       </div>`;
     });
     html += `</div>`;
@@ -586,7 +617,66 @@ function renderProgreso(){
   document.getElementById('app').innerHTML = html;
 }
 
-const renderers = { dashboard: renderDashboard, entrenamientos: renderEntrenamientos, nutricion: renderNutricion, progreso: renderProgreso };
+const renderers = { dashboard: renderDashboard, entrenamientos: renderEntrenamientos, nutricion: renderNutricion, progreso: renderProgreso, guia: renderGuia };
+
+function renderGuia(){
+  const html = `
+    <div class="section-title">Guía Fija — Reglas del Reto</div>
+
+    <div class="guia-card">
+      <div class="guia-h">🔥 Límite calórico (por mi peso 230lb, 5x/sem + cardio)</div>
+      <ul class="guia-ul">
+        <li>Días de gym: <b>1,600–1,700 kcal</b></li>
+        <li>Días de descanso: <b>1,400 kcal</b></li>
+        <li>Proteína: <b>150g objetivo</b>, techo útil <b>230g</b></li>
+        <li>Déficit óptimo: <b>500–700 kcal/día</b> (perder grasa sin canibalizar músculo)</li>
+      </ul>
+    </div>
+
+    <div class="guia-card">
+      <div class="guia-h">💪 Reglas Renfit (siempre presentes)</div>
+      <ul class="guia-ul">
+        <li>Progresión: subir peso <b>+5–10%</b> cuando dominas el rango superior 2 sesiones seguidas</li>
+        <li>Cada serie <b>al fallo o cerca del fallo</b> muscular con buena técnica</li>
+        <li>Respetar descansos pautados, preferible cronometrados</li>
+        <li>Agua: <b>mínimo 2.5L</b> (objetivo real 4L)</li>
+        <li>Batido whey por la tarde <b>obligatorio</b> (2–3h post-almuerzo)</li>
+        <li>No freír · no sazones procesados · 1 aderezo/día máximo</li>
+        <li>No entrenar en ayunas si entrenas después de 9am (comer 30–40min antes)</li>
+        <li>Comida libre cada 15 días (solo si cumpliste los 15 días antes)</li>
+      </ul>
+    </div>
+
+    <div class="guia-card">
+      <div class="guia-h">🏃 Cardio (4 quema + 3 descanso activo)</div>
+      <ul class="guia-ul">
+        <li>Quema <b>4x/semana</b>, 30–60min, <b>siempre post-pesas</b></li>
+        <li>Máquinas: elíptica, caminadora inclinada, escaladora, bicicleta, trotar</li>
+        <li>Día de pierna: <b>sin impacto</b> (bicicleta, no correr/saltar)</li>
+        <li>Otros días: descanso activo suave (caminata) — recuperación, no quema</li>
+      </ul>
+    </div>
+
+    <div class="guia-card">
+      <div class="guia-h">🎯 Abdominales (recomendado, por función)</div>
+      <ul class="guia-ul">
+        <li><b>2–3x/semana</b>, al final de rutina, nunca 2 días seguidos (24h descanso)</li>
+        <li>Cada set al fallo. Plancha / dead bug para core anti-extensión</li>
+        <li>No marca abdomen (solo grasa baja lo marca) — es para dejar de arquear lumbar en press/curl/peso muerto</li>
+      </ul>
+    </div>
+
+    <div class="guia-card">
+      <div class="guia-h">💊 Suplementos diarios</div>
+      <ul class="guia-ul">
+        <li>Multivitamínico ×2 · Omega-3 ×3 · Creatina ~5g</li>
+        <li>Magnesio + Ashwagandha 9:30pm (30min antes de dormir)</li>
+        <li>Cama antes de 10pm — el músculo se construye durmiendo</li>
+      </ul>
+    </div>
+  `;
+  document.getElementById('app').innerHTML = html;
+}
 
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -665,9 +755,10 @@ async function saveEj(){
 }
 
 async function saveCom(){
+  const fecha = document.getElementById('com-fecha').value;
+  const momento = document.getElementById('com-momento').value;
   const row = {
-    fecha: document.getElementById('com-fecha').value,
-    momento: document.getElementById('com-momento').value,
+    fecha, momento,
     comida: document.getElementById('com-comida').value.trim(),
     calorias: parseFloat(document.getElementById('com-cal').value)||null,
     proteina: parseFloat(document.getElementById('com-prot').value)||null,
@@ -675,6 +766,17 @@ async function saveCom(){
     grasas: parseFloat(document.getElementById('com-gra').value)||null
   };
   if(!row.comida){ showToast('Falta la comida'); return; }
+  // anti-duplicado: ya existe ese momento ese dia?
+  const existente = state.comidas.find(c => c.fecha===fecha && c.momento.toLowerCase()===momento.toLowerCase());
+  if(existente){
+    const corregir = confirm(`Ya hay un ${momento} registrado ese día:\n"${existente.comida}"\n\nAceptar = CORREGIR (reemplazar por el nuevo)\nCancelar = es comida adicional (agregar aparte)`);
+    if(corregir){
+      const {error} = await sb.from('fenix_comidas').update(row).eq('id', existente.id);
+      if(error){ showToast('Error: '+error.message); return; }
+      ['com-comida','com-cal','com-prot','com-carb','com-gra'].forEach(id=>document.getElementById(id).value='');
+      await loadAll(); showToast('Comida corregida ✓'); return;
+    }
+  }
   const {error} = await sb.from('fenix_comidas').insert(row);
   if(error){ showToast('Error: '+error.message); return; }
   ['com-comida','com-cal','com-prot','com-carb','com-gra'].forEach(id=>document.getElementById(id).value='');
