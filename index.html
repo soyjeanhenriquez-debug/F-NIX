@@ -184,14 +184,25 @@ function renderEntrenamientos(){
     if(!byDate[e.fecha]) byDate[e.fecha] = [];
     byDate[e.fecha].push(e);
   });
-  const dates = Object.keys(byDate).sort().reverse();
+  const allDates = new Set([...Object.keys(byDate), ...state.dias.map(d=>d.fecha)]);
+  const dates = [...allDates].sort().reverse();
   let html = `<div class="section-title">Entrenamientos</div>`;
   dates.forEach(fecha => {
-    html += `<div class="entry"><div class="entry-date">${fecha}</div>`;
-    byDate[fecha].forEach(e => {
-      html += `<div class="entry-body"><b>${e.ejercicio}</b> — ${e.series}×${e.reps} ${e.peso ? '@ '+fmt(e.peso)+' lb' : ''}</div>`;
-      if(e.notas) html += `<div class="macro">${e.notas}</div>`;
-    });
+    const diaLog = state.dias.find(d => d.fecha === fecha);
+    const tienePesas = byDate[fecha] && byDate[fecha].length;
+    html += `<div class="entry"><div class="entry-date">${fecha}${!tienePesas ? '<span class="day-badge">DESCANSO / CARDIO</span>' : ''}</div>`;
+    if(tienePesas){
+      byDate[fecha].forEach(e => {
+        html += `<div class="entry-body"><b>${e.ejercicio}</b> — ${e.series}×${e.reps} ${e.peso ? '@ '+fmt(e.peso)+' lb' : ''}</div>`;
+        if(e.notas) html += `<div class="macro">${e.notas}</div>`;
+      });
+    }
+    if(diaLog && diaLog.notas){
+      html += `<div class="entry-body" style="margin-top:${tienePesas?'10px':'0'};color:${tienePesas?'var(--sub)':'var(--text)'};">${diaLog.notas}</div>`;
+    }
+    if(!tienePesas && !(diaLog && diaLog.notas)){
+      html += `<div class="macro">Sin actividad registrada este día</div>`;
+    }
     html += `</div>`;
   });
   document.getElementById('app').innerHTML = html || '<div class="loading">Sin entrenamientos registrados</div>';
