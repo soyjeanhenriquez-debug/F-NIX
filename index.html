@@ -112,6 +112,20 @@
   .guia-ul{margin:0;padding-left:18px;}
   .guia-ul li{font-size:0.88rem;color:var(--sub);line-height:1.55;margin-bottom:4px;}
   .guia-ul li b{color:var(--text);}
+  .entry.score-ok{border-left:3px solid var(--green);}
+  .entry.score-ambar{border-left:3px solid #ffb400;}
+  .entry.score-rojo{border-left:3px solid var(--red);}
+  .score-badge{font-size:0.78rem;font-weight:800;padding:4px 10px;border-radius:8px;white-space:nowrap;}
+  .score-badge.ok{background:rgba(62,207,122,0.18);color:var(--green);}
+  .score-badge.ambar{background:rgba(255,180,0,0.18);color:#ffb400;}
+  .score-badge.rojo{background:rgba(255,82,82,0.2);color:var(--red);}
+  .score-detail{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;}
+  .chk{font-size:0.78rem;font-weight:600;padding:2px 8px;border-radius:6px;background:#0a0a0a;}
+  .chk.y{color:var(--green);}
+  .chk.n{color:var(--red);}
+  .faltan{background:rgba(255,180,0,0.12);color:#ffb400;font-size:0.82rem;font-weight:600;padding:8px 10px;border-radius:8px;margin-bottom:8px;}
+  .com-faltan{font-size:0.85rem;color:var(--sub);margin-bottom:10px;min-height:1rem;}
+  .pill-falta{display:inline-block;background:var(--orange-dim);color:var(--orange);padding:3px 10px;border-radius:12px;font-weight:700;cursor:pointer;margin:2px;}
 </style>
 </head>
 <body>
@@ -157,6 +171,7 @@
     </div>
 
     <div class="mform" id="form-com" style="display:none">
+      <div id="com-faltan" class="com-faltan"></div>
       <label>Fecha</label><input type="date" id="com-fecha">
       <label>Momento</label>
       <select id="com-momento">
@@ -541,31 +556,48 @@ function renderNutricion(){
     byDate[c.fecha].push(c);
   });
   const dates = Object.keys(byDate).sort().reverse();
-  let html = `<div class="section-title">Nutrición</div>`;
-  // dias con pesas registradas (para saber techo calorico)
   const diasConPesas = new Set(state.ejercicios.filter(e=>!esCardio(e.ejercicio)).map(e=>e.fecha));
+  const diasConCardio = new Set(state.ejercicios.filter(e=>esCardio(e.ejercicio)).map(e=>e.fecha));
+  const diasConNota = new Set(state.dias.filter(d=>d.notas).map(d=>d.fecha));
+  const ordenMomento = {desayuno:1,almuerzo:2,comida:2,snack:3,cena:4,merienda:3};
+
+  let html = `<div class="section-title">Nutrición</div>`;
   dates.forEach(fecha => {
-    const items = byDate[fecha];
+    const items = byDate[fecha].slice().sort((a,b)=>{
+      const oa=ordenMomento[a.momento.toLowerCase()]||9, ob=ordenMomento[b.momento.toLowerCase()]||9;
+      return oa-ob;
+    });
     const totalCal = items.reduce((s,i)=>s+(Number(i.calorias)||0),0);
     const totalProt = items.reduce((s,i)=>s+(Number(i.proteina)||0),0);
     const esGym = diasConPesas.has(fecha);
     const techo = esGym ? 1700 : 1400;
-    // semaforo
-    let sem='ok', msg=`${fmt(totalCal,0)} / ${techo} kcal`;
-    if(totalCal > techo){ sem='rojo'; msg=`${fmt(totalCal,0)} kcal · +${fmt(totalCal-techo,0)} sobre el techo (${techo})`; }
-    else if(totalCal > techo*0.9){ sem='ambar'; msg=`${fmt(totalCal,0)} / ${techo} kcal · cerca del techo`; }
-    // proteina
-    let protMsg = `${fmt(totalProt,0)}g`;
-    if(totalProt > 230) protMsg += ' ⚠️ sobre techo útil';
-    else if(totalProt >= 150) protMsg += ' ✓';
-    else protMsg += ` (faltan ${fmt(150-totalProt,0)}g)`;
+    const hizoEjercicio = esGym || diasConCardio.has(fecha) || diasConNota.has(fecha);
 
-    html += `<div class="entry">
+    // --- SCORE DEL DIA (3 criterios) ---
+    let pts=0;
+    const cProt = totalProt >= 150; if(cProt) pts++;
+    const cCal = totalCal>0 && totalCal <= techo; if(cCal) pts++;
+    const cEj = hizoEjercicio; if(cEj) pts++;
+    let sc = pts>=3?'ok':(pts===2?'ambar':'rojo');
+    let scTxt = pts>=3?'DÍA BUENO':(pts===2?'MÁS O MENOS':'DÍA MALO');
+
+    // --- checklist de comidas faltantes ---
+    const momentosHechos = new Set(items.map(i=>i.momento.toLowerCase()));
+    const faltan = ['desayuno','almuerzo','cena'].filter(m=>!momentosHechos.has(m) && !(m==='almuerzo'&&momentosHechos.has('comida')));
+
+    html += `<div class="entry score-${sc}">
       <div class="entry-top">
-        <div class="entry-date">${fecha} <span class="daytype">${esGym?'GYM':'DESCANSO'}</span></div>
-        <div class="cal-badge ${sem}">${msg}</div>
+        <div class="entry-date">${fecha} <span class="daytype">${esGym?'GYM':(hizoEjercicio?'ACTIVO':'SIN EJERCICIO')}</span></div>
+        <div class="score-badge ${sc}">${scTxt}</div>
       </div>
-      <div class="prot-line">Proteína: <b>${protMsg}</b></div>`;
+      <div class="score-detail">
+        <span class="chk ${cEj?'y':'n'}">${cEj?'✓':'✗'} Ejercicio</span>
+        <span class="chk ${cProt?'y':'n'}">${cProt?'✓':'✗'} Proteína ${fmt(totalProt,0)}g</span>
+        <span class="chk ${cCal?'y':'n'}">${cCal?'✓':'✗'} ${fmt(totalCal,0)}/${techo} kcal</span>
+      </div>`;
+    if(faltan.length){
+      html += `<div class="faltan">⚠️ Falta registrar: ${faltan.join(', ')}</div>`;
+    }
     items.forEach(c => {
       html += `<div class="entry-body"><b>${c.momento}:</b> ${c.comida}</div>`;
       html += `<div class="macro-row">
@@ -695,6 +727,27 @@ function openModal(){
   document.getElementById('modal').classList.add('open');
   ['ej-fecha','com-fecha','dia-fecha'].forEach(id => { if(!document.getElementById(id).value) document.getElementById(id).value = todayStr(); });
   populateEjList();
+  actualizarFaltanHoy();
+}
+
+// muestra en el form de comida que momentos faltan HOY
+function actualizarFaltanHoy(){
+  const hoy = todayStr();
+  const hechos = new Set(state.comidas.filter(c=>c.fecha===hoy).map(c=>c.momento.toLowerCase()));
+  const base = ['desayuno','almuerzo','cena'];
+  const faltan = base.filter(m=>!hechos.has(m) && !(m==='almuerzo'&&hechos.has('comida')));
+  const el = document.getElementById('com-faltan');
+  if(!el) return;
+  if(faltan.length){
+    el.innerHTML = `Hoy falta: ${faltan.map(f=>`<span class="pill-falta" onclick="setMomento('${f}')">${f}</span>`).join(' ')}`;
+  } else {
+    el.innerHTML = `<span style="color:var(--green)">✓ Desayuno, almuerzo y cena registrados hoy</span>`;
+  }
+}
+function setMomento(m){
+  const sel = document.getElementById('com-momento');
+  const cap = m.charAt(0).toUpperCase()+m.slice(1);
+  for(const opt of sel.options){ if(opt.value.toLowerCase()===m){ sel.value=opt.value; break; } }
 }
 function closeModal(){ document.getElementById('modal').classList.remove('open'); }
 
@@ -774,13 +827,13 @@ async function saveCom(){
       const {error} = await sb.from('fenix_comidas').update(row).eq('id', existente.id);
       if(error){ showToast('Error: '+error.message); return; }
       ['com-comida','com-cal','com-prot','com-carb','com-gra'].forEach(id=>document.getElementById(id).value='');
-      await loadAll(); showToast('Comida corregida ✓'); return;
+      await loadAll(); actualizarFaltanHoy(); showToast('Comida corregida ✓'); return;
     }
   }
   const {error} = await sb.from('fenix_comidas').insert(row);
   if(error){ showToast('Error: '+error.message); return; }
   ['com-comida','com-cal','com-prot','com-carb','com-gra'].forEach(id=>document.getElementById(id).value='');
-  await loadAll(); showToast('Comida guardada ✓');
+  await loadAll(); actualizarFaltanHoy(); showToast('Comida guardada ✓');
 }
 
 async function saveDia(){
