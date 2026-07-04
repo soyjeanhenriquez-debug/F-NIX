@@ -73,6 +73,13 @@
   .prog.same{background:#262626;color:var(--sub);}
   .prog.new{background:var(--orange-dim);color:var(--orange);}
   .ex-note{color:var(--sub);font-size:0.8rem;margin-top:5px;line-height:1.35;}
+  .ex-num{display:inline-block;background:var(--orange-dim);color:var(--orange);font-size:0.72rem;font-weight:800;padding:1px 6px;border-radius:5px;margin-right:7px;}
+  .ex-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;}
+  .obj{display:inline-block;font-size:0.78rem;font-weight:700;padding:2px 8px;border-radius:6px;}
+  .obj.ok{background:rgba(62,207,122,0.12);color:var(--green);}
+  .obj.bajo{background:rgba(255,180,0,0.12);color:#ffb400;}
+  .cardio-block{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);}
+  .cardio-title{font-size:0.82rem;font-weight:700;color:var(--sub);margin-bottom:5px;}
 </style>
 </head>
 <body>
@@ -162,6 +169,62 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const PROJECT_START = new Date("2026-06-30T00:00:00");
 const BASELINE_LB = 235.9; // peso inicio, 22 jun, ya en libras
 const META_LB = 198.4;     // 90kg convertido a lb
+
+// ---- RUTINA OFICIAL RENFIT (Mes 1) — orden + rango reps objetivo ----
+// clave normalizada del ejercicio -> {orden, dia, grupo, reps, series}
+const RENFIT = {
+  // DIA 1 - Pecho + Triceps
+  'press banco plano smith':{d:1,o:1,g:'Pecho',reps:'8',series:4},
+  'press plano smith':{d:1,o:1,g:'Pecho',reps:'8',series:4},
+  'prensa inclinado maquina':{d:1,o:2,g:'Pecho',reps:'12',series:4},
+  'press inclinado maquina':{d:1,o:2,g:'Pecho',reps:'12',series:4},
+  'fly maquina':{d:1,o:3,g:'Pecho',reps:'12-15',series:3},
+  'press declinado maquina':{d:1,o:4,g:'Pecho',reps:'8',series:3},
+  'extensiones barra triceps':{d:1,o:5,g:'Triceps',reps:'12',series:3},
+  'extensiones soga triceps':{d:1,o:6,g:'Triceps',reps:'12-15',series:3},
+  // DIA 2 - Espalda + Biceps
+  'jalon al pecho supino maquina':{d:2,o:1,g:'Espalda',reps:'8-10',series:4},
+  'jalon al pecho agarre supino':{d:2,o:1,g:'Espalda',reps:'8-10',series:4},
+  'jalon cerrado neutro maquina':{d:2,o:2,g:'Espalda',reps:'8-10',series:4},
+  'jalon polea baja supino':{d:2,o:3,g:'Espalda',reps:'10-12',series:3},
+  'jalon polea baja agarre supino':{d:2,o:3,g:'Espalda',reps:'10-12',series:3},
+  'jalon banquillo mancuernas':{d:2,o:4,g:'Espalda',reps:'12-15',series:3},
+  'curls maquina':{d:2,o:5,g:'Biceps',reps:'12-15',series:3},
+  'curls biceps maquina':{d:2,o:5,g:'Biceps',reps:'12-15',series:3},
+  'curls polea soga':{d:2,o:6,g:'Biceps',reps:'12-15',series:3},
+  // DIA 3 - Pierna Completa
+  'sentadilla smith':{d:3,o:1,g:'Pierna',reps:'8-10',series:4},
+  'sentadilla maquina smith':{d:3,o:1,g:'Pierna',reps:'8-10',series:4},
+  'prensa de piernas':{d:3,o:2,g:'Pierna',reps:'8-10',series:4},
+  'prensa piernas':{d:3,o:2,g:'Pierna',reps:'8-10',series:4},
+  'extension de cadera maquina':{d:3,o:4,g:'Pierna',reps:'12-15',series:3},
+  'extension cadera maquina':{d:3,o:4,g:'Pierna',reps:'12-15',series:3},
+  // DIA 4 - Brazos
+  'prensa militar maquina':{d:4,o:1,g:'Hombros',reps:'8-10',series:4},
+  'press militar maquina':{d:4,o:1,g:'Hombros',reps:'8-10',series:4},
+  'elevaciones laterales mancuernas':{d:4,o:2,g:'Hombros',reps:'12-15',series:3},
+  'jalon hombro posterior polea':{d:4,o:3,g:'Hombros',reps:'12-15',series:3},
+  'curls barra agarre supino':{d:4,o:4,g:'Biceps',reps:'12-15',series:3},
+  'curls barra supino':{d:4,o:4,g:'Biceps',reps:'12-15',series:3},
+  'curls mancuernas agarre neutro':{d:4,o:5,g:'Biceps',reps:'12-15',series:3},
+  'curls mancuernas neutro':{d:4,o:5,g:'Biceps',reps:'12-15',series:3},
+  'extensiones soga':{d:4,o:6,g:'Triceps',reps:'12-15',series:3},
+  'extensiones barra':{d:4,o:7,g:'Triceps',reps:'10',series:4},
+  // DIA 5 - Tren Inferior
+  'peso muerto barra':{d:5,o:1,g:'Isquios',reps:'10',series:3},
+  'curl femoral acostado':{d:5,o:2,g:'Isquios',reps:'8-12',series:4},
+  'curl femoral sentado':{d:5,o:3,g:'Isquios',reps:'12',series:3},
+  'hip thrust maquina':{d:5,o:4,g:'Gluteos',reps:'15',series:2},
+  'elevaciones talones de pie maquina':{d:5,o:5,g:'Pantorrillas',reps:'10-12',series:4},
+  'elevaciones talones de pie smith':{d:5,o:5,g:'Pantorrillas',reps:'10-12',series:4},
+  'elevaciones talones sentado':{d:5,o:6,g:'Pantorrillas',reps:'8-12',series:5},
+};
+function normEj(nombre){
+  return nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+}
+function renfitInfo(nombre){ return RENFIT[normEj(nombre)] || null; }
+function esCardio(nombre){ const n=normEj(nombre); return n.includes('cardio')||n.includes('caminadora')||n.includes('caminata')||n.includes('boxeo')||n.includes('bicicleta')||n.includes('eliptica')||n.includes('trot'); }
+
 
 let state = { dias: [], ejercicios: [], comidas: [], medidas: [] };
 
@@ -277,10 +340,9 @@ function renderEntrenamientos(){
   const allDates = new Set([...Object.keys(byDate), ...state.dias.map(d=>d.fecha)]);
   const dates = [...allDates].sort().reverse();
 
-  // helper: encontrar la vez ANTERIOR del mismo ejercicio antes de una fecha dada
   function prevPeso(nombre, fecha){
     const hist = state.ejercicios
-      .filter(e => e.ejercicio === nombre && e.peso && e.fecha < fecha)
+      .filter(e => normEj(e.ejercicio)===normEj(nombre) && e.peso && e.fecha < fecha)
       .sort((a,b)=>b.fecha.localeCompare(a.fecha));
     return hist.length ? hist[0] : null;
   }
@@ -288,44 +350,81 @@ function renderEntrenamientos(){
   let html = `<div class="section-title">Entrenamientos</div>`;
   dates.forEach(fecha => {
     const diaLog = state.dias.find(d => d.fecha === fecha);
-    const tienePesas = byDate[fecha] && byDate[fecha].length;
-    html += `<div class="entry"><div class="entry-date">${fecha}${!tienePesas ? '<span class="day-badge">DESCANSO / CARDIO</span>' : ''}</div>`;
+    const items = byDate[fecha] || [];
+    // separar pesas de cardio/descanso
+    const pesas = items.filter(e => !esCardio(e.ejercicio));
+    const cardio = items.filter(e => esCardio(e.ejercicio));
+    // ordenar pesas por indice Renfit (los que no matchean van al final)
+    pesas.sort((a,b)=>{
+      const ra=renfitInfo(a.ejercicio), rb=renfitInfo(b.ejercicio);
+      if(ra&&rb) return ra.o-rb.o;
+      if(ra) return -1; if(rb) return 1; return 0;
+    });
+    const diaReto = pesas.length && renfitInfo(pesas[0].ejercicio) ? renfitInfo(pesas[0].ejercicio).d : null;
 
-    if(tienePesas){
-      byDate[fecha].forEach(e => {
-        // bloque de progresion
-        let prog = '';
-        if(e.peso){
-          const prev = prevPeso(e.ejercicio, fecha);
-          if(prev){
-            const diff = e.peso - prev.peso;
-            const pct = ((diff / prev.peso) * 100);
-            let cls = diff > 0 ? 'up' : (diff < 0 ? 'down' : 'same');
-            let arrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '=');
-            prog = `<span class="prog ${cls}">${arrow} ${diff>0?'+':''}${fmt(diff)} lb (${pct>0?'+':''}${fmt(pct,0)}%) vs ${prev.fecha.slice(5)}</span>`;
-          } else {
-            prog = `<span class="prog new">nuevo</span>`;
-          }
-        }
-        html += `<div class="ex-row">
-          <div class="ex-head">
-            <span class="ex-name">${e.ejercicio}</span>
-            <span class="ex-load">${e.series}×${e.reps}${e.peso ? ' · '+fmt(e.peso)+' lb' : ''}</span>
-          </div>
-          ${prog}
-          ${e.notas ? `<div class="ex-note">${e.notas}</div>` : ''}
-        </div>`;
+    html += `<div class="entry"><div class="entry-date">${fecha}`;
+    if(!pesas.length) html += `<span class="day-badge">DESCANSO / CARDIO</span>`;
+    else if(diaReto) html += `<span class="day-badge">DÍA ${diaReto}</span>`;
+    html += `</div>`;
+
+    pesas.forEach(e => {
+      const rf = renfitInfo(e.ejercicio);
+      let prog = '';
+      if(e.peso){
+        const prev = prevPeso(e.ejercicio, fecha);
+        if(prev){
+          const diff = e.peso - prev.peso;
+          const pct = ((diff / prev.peso) * 100);
+          let cls = diff>0?'up':(diff<0?'down':'same');
+          let arrow = diff>0?'▲':(diff<0?'▼':'=');
+          prog = `<span class="prog ${cls}">${arrow} ${diff>0?'+':''}${fmt(diff)} lb (${pct>0?'+':''}${fmt(pct,0)}%)</span>`;
+        } else prog = `<span class="prog new">nuevo</span>`;
+      }
+      // rango objetivo vs real
+      let objetivo = '';
+      if(rf){
+        const cumple = repEnRango(e.reps, rf.reps);
+        objetivo = `<span class="obj ${cumple?'ok':'bajo'}">obj: ${rf.reps} reps</span>`;
+      }
+      const num = rf ? `<span class="ex-num">#${rf.o}</span>` : '';
+      html += `<div class="ex-row">
+        <div class="ex-head">
+          <span class="ex-name">${num}${e.ejercicio}</span>
+          <span class="ex-load">${e.series}×${e.reps}${e.peso?' · '+fmt(e.peso)+' lb':''}</span>
+        </div>
+        <div class="ex-tags">${prog}${objetivo}</div>
+        ${e.notas?`<div class="ex-note">${e.notas}</div>`:''}
+      </div>`;
+    });
+
+    if(cardio.length){
+      html += `<div class="cardio-block"><div class="cardio-title">🏃 Cardio / Actividad</div>`;
+      cardio.forEach(c => {
+        html += `<div class="ex-note" style="color:var(--text)"><b>${c.ejercicio}</b>${c.notas?' — '+c.notas:''}</div>`;
       });
+      html += `</div>`;
     }
+
     if(diaLog && diaLog.notas){
-      html += `<div class="entry-body" style="margin-top:${tienePesas?'10px':'0'};color:${tienePesas?'var(--sub)':'var(--text)'};">${diaLog.notas}</div>`;
+      html += `<div class="entry-body" style="margin-top:10px;color:var(--sub);">${diaLog.notas}</div>`;
     }
-    if(!tienePesas && !(diaLog && diaLog.notas)){
-      html += `<div class="macro">Sin actividad registrada este día</div>`;
+    if(!pesas.length && !cardio.length && !(diaLog&&diaLog.notas)){
+      html += `<div class="macro">Sin actividad registrada</div>`;
     }
     html += `</div>`;
   });
   document.getElementById('app').innerHTML = html || '<div class="loading">Sin entrenamientos registrados</div>';
+}
+
+// ¿las reps reales caen dentro del rango objetivo?
+function repEnRango(real, rango){
+  const r = parseInt(real);
+  if(isNaN(r)) return true;
+  if(rango.includes('-')){
+    const [lo,hi] = rango.split('-').map(x=>parseInt(x));
+    return r >= lo;
+  }
+  return r >= parseInt(rango);
 }
 
 function renderNutricion(){
