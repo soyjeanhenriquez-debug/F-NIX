@@ -130,6 +130,8 @@
   .reco-title{font-weight:800;font-size:0.95rem;margin-bottom:8px;}
   .reco-item{display:flex;gap:8px;font-size:0.85rem;color:var(--sub);line-height:1.4;margin-top:6px;}
   .reco-item span:first-child{flex-shrink:0;}
+  .foto-banner{display:flex;gap:10px;align-items:center;background:linear-gradient(135deg,rgba(255,90,31,0.18),rgba(255,90,31,0.05));border:1px solid var(--orange);border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:0.9rem;line-height:1.4;}
+  .foto-banner span:first-child{font-size:1.3rem;}
 </style>
 </head>
 <body>
@@ -382,6 +384,15 @@ function abrirDiaHoy(dow){
   document.getElementById('app').innerHTML = html;
 }
 
+// banner recordatorio foto los lunes
+function fotoLunesBanner(){
+  if(new Date().getDay() !== 1) return ''; // solo lunes
+  return `<div class="foto-banner">
+    <span>📸</span>
+    <span><b>Es lunes — foto de progreso 1pm.</b> Frente, lado y espalda, misma luz y hora. Es lo que Renfit evalúa.</span>
+  </div>`;
+}
+
 // header de recomendaciones personales — dinamico segun datos reales
 function headerRecomendaciones(){
   const tips = [];
@@ -442,6 +453,7 @@ function renderDashboard(){
 
   const html = `
     ${protocoloHoy()}
+    ${fotoLunesBanner()}
     ${headerRecomendaciones()}
     <div class="section-title">Resumen — Peso en libras</div>
     <div class="grid">
