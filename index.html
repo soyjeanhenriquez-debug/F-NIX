@@ -84,6 +84,20 @@
   .protocolo.rest{background:linear-gradient(135deg,rgba(62,207,122,0.1),rgba(62,207,122,0.02));border-color:rgba(62,207,122,0.3);}
   .proto-head{font-weight:800;font-size:1rem;margin-bottom:6px;}
   .proto-line{font-size:0.86rem;color:var(--sub);margin-top:4px;line-height:1.35;}
+  .proto-tap{float:right;font-size:0.78rem;color:var(--orange);font-weight:700;}
+  .dia-panel{padding-bottom:20px;}
+  .dia-panel-head{display:flex;justify-content:space-between;align-items:center;font-size:1.15rem;font-weight:800;margin:8px 0 16px;}
+  .dia-close{background:var(--card);border:1px solid var(--border);color:var(--text);width:34px;height:34px;border-radius:50%;font-size:1rem;cursor:pointer;}
+  .dia-ex{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;}
+  .dia-ex-top{display:flex;justify-content:space-between;align-items:center;}
+  .dia-ex-name{font-weight:700;font-size:0.98rem;}
+  .dia-ex-grp{font-size:0.72rem;color:var(--sub);text-transform:uppercase;letter-spacing:0.04em;}
+  .dia-ex-specs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .spec{font-size:0.82rem;padding:3px 9px;border-radius:7px;background:#0a0a0a;color:var(--sub);font-weight:600;}
+  .spec.sug{background:var(--orange-dim);color:var(--orange);}
+  .spec.mejora{background:rgba(62,207,122,0.15);color:var(--green);}
+  .spec.new{background:rgba(255,180,0,0.12);color:#ffb400;}
+  .dia-cardio-note{margin-top:14px;padding:12px;background:#0a0a0a;border-radius:10px;font-size:0.84rem;color:var(--sub);}
 </style>
 </head>
 <body>
@@ -277,11 +291,61 @@ function protocoloHoy(){
   };
   const p = map[dow];
   const esDescanso = (dow===4||dow===0);
-  return `<div class="protocolo ${esDescanso?'rest':''}">
-    <div class="proto-head">📋 Hoy — ${p.t}</div>
+  return `<div class="protocolo ${esDescanso?'rest':''}" ${!esDescanso?'onclick="abrirDiaHoy('+dow+')" style="cursor:pointer"':''}>
+    <div class="proto-head">📋 Hoy — ${p.t} ${!esDescanso?'<span class="proto-tap">ver ejercicios ›</span>':''}</div>
     <div class="proto-line">🏃 ${p.cardio}</div>
     ${p.abs?'<div class="proto-line">🎯 Abs recomendado (plancha/dead bug al fallo — por función, no estética)</div>':''}
   </div>`;
+}
+
+// abre panel con los ejercicios oficiales del dia de hoy
+function abrirDiaHoy(dow){
+  const diaReto = {1:1,2:2,3:3,5:4,6:5}[dow];
+  if(!diaReto) return;
+  // ejercicios oficiales de ese dia, ordenados
+  const ejsDelDia = Object.entries(RENFIT)
+    .filter(([k,v])=>v.d===diaReto)
+    .reduce((acc,[k,v])=>{ // dedupe por orden (hay alias)
+      if(!acc.find(x=>x.o===v.o)) acc.push({nombre:k,...v});
+      return acc;
+    },[])
+    .sort((a,b)=>a.o-b.o);
+
+  const nombreBonito = {1:'Día 1 — Pecho + Tríceps',2:'Día 2 — Espalda + Bíceps',3:'Día 3 — Pierna Completa',4:'Día 4 — Brazos + Hombros',5:'Día 5 — Tren Inferior'}[diaReto];
+
+  let html = `<div class="dia-panel">
+    <div class="dia-panel-head">
+      <span>${nombreBonito}</span>
+      <button onclick="renderDashboard()" class="dia-close">✕</button>
+    </div>`;
+
+  ejsDelDia.forEach(ej => {
+    // ultimo peso registrado de este ejercicio (por cualquier alias)
+    const hist = state.ejercicios
+      .filter(e => renfitInfo(e.ejercicio) && renfitInfo(e.ejercicio).o===ej.o && renfitInfo(e.ejercicio).d===ej.d && e.peso)
+      .sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    const ultimo = hist.length ? hist[0] : null;
+    const sug = ultimo ? Math.round(ultimo.peso * 1.05 * 2)/2 : null;
+    const mejora = ultimo ? '+5%' : '—';
+
+    const nombreCap = ej.nombre.replace(/\b\w/g, c=>c.toUpperCase());
+    html += `<div class="dia-ex">
+      <div class="dia-ex-top">
+        <span class="dia-ex-name"><span class="ex-num">#${ej.o}</span>${nombreCap}</span>
+        <span class="dia-ex-grp">${ej.g}</span>
+      </div>
+      <div class="dia-ex-specs">
+        <span class="spec">${ej.series}×${ej.reps} reps</span>
+        ${ultimo ? `<span class="spec">último: ${fmt(ultimo.peso)} lb</span>` : ''}
+        ${sug ? `<span class="spec sug">objetivo hoy: ${sug} lb</span>` : `<span class="spec new">primera vez — calibrar</span>`}
+        ${ultimo ? `<span class="spec mejora">${mejora}</span>` : ''}
+      </div>
+    </div>`;
+  });
+
+  html += `<div class="dia-cardio-note">🏃 Recuerda: cardio al terminar las pesas (ver arriba en el dashboard)</div>`;
+  html += `</div>`;
+  document.getElementById('app').innerHTML = html;
 }
 
 function renderDashboard(){
