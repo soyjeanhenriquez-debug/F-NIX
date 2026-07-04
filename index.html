@@ -411,7 +411,10 @@ function renderDashboard(){
   const diasConPeso = state.dias.filter(d => d.peso !== null);
   const pesoActual = diasConPeso.length ? diasConPeso[diasConPeso.length-1].peso : null;
   const bajadaTotal = pesoActual !== null ? (BASELINE_LB - pesoActual) : null;
-  const diasGym = state.dias.length;
+  const RETO_START = '2026-06-30';
+  const diasReto = state.dias.filter(d => d.fecha >= RETO_START).length;
+  const diasPre = state.dias.filter(d => d.fecha < RETO_START).length;
+  const diaActual = daysSinceStart();
   const proteinas = state.dias.filter(d => d.proteina !== null).map(d => d.proteina);
   const proteinaProm = proteinas.length ? proteinas.reduce((a,b)=>a+b,0)/proteinas.length : null;
   const aguas = state.dias.filter(d => d.agua !== null).map(d => d.agua);
@@ -454,14 +457,14 @@ function renderDashboard(){
         <div class="bar-bg"><div class="bar-fill" style="width:${bajadaPct}%"></div></div>
       </div>
       <div class="card">
-        <div class="label">Días Registrados</div>
-        <div class="value">${diasGym}</div>
-        <div class="sub">de 60 días totales</div>
+        <div class="label">Día del Reto</div>
+        <div class="value orange">${Math.min(diaActual,60)}<span style="font-size:1rem;">/60</span></div>
+        <div class="sub">${diasReto} días registrados${diasPre?` · +${diasPre} pre`:''}</div>
       </div>
       <div class="card">
         <div class="label">Días Restantes</div>
-        <div class="value">${Math.max(60 - daysSinceStart(),0)}</div>
-        <div class="sub">para el día 60</div>
+        <div class="value">${Math.max(60 - diaActual, 0)}</div>
+        <div class="sub">para el día 60 (28 ago)</div>
       </div>
       <div class="card">
         <div class="label">Proteína Promedio</div>
