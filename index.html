@@ -126,6 +126,10 @@
   .faltan{background:rgba(255,180,0,0.12);color:#ffb400;font-size:0.82rem;font-weight:600;padding:8px 10px;border-radius:8px;margin-bottom:8px;}
   .com-faltan{font-size:0.85rem;color:var(--sub);margin-bottom:10px;min-height:1rem;}
   .pill-falta{display:inline-block;background:var(--orange-dim);color:var(--orange);padding:3px 10px;border-radius:12px;font-weight:700;cursor:pointer;margin:2px;}
+  .reco-header{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+  .reco-title{font-weight:800;font-size:0.95rem;margin-bottom:8px;}
+  .reco-item{display:flex;gap:8px;font-size:0.85rem;color:var(--sub);line-height:1.4;margin-top:6px;}
+  .reco-item span:first-child{flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -378,6 +382,31 @@ function abrirDiaHoy(dow){
   document.getElementById('app').innerHTML = html;
 }
 
+// header de recomendaciones personales — dinamico segun datos reales
+function headerRecomendaciones(){
+  const tips = [];
+  // agua
+  const aguas = state.dias.filter(d=>d.agua!==null).map(d=>d.agua);
+  const aguaProm = aguas.length ? aguas.reduce((a,b)=>a+b,0)/aguas.length : null;
+  if(aguaProm!==null && aguaProm < 3.5) tips.push({ic:'💧',t:`Agua en ${fmt(aguaProm)}L promedio vs 4L objetivo — tu déficit crónico. Es el único KPI que falla por ejecución, no por dato.`});
+  // recomposicion
+  const meds = state.medidas.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  if(meds.length>1){
+    const dG = meds[meds.length-1].grasa_corporal - meds[0].grasa_corporal;
+    if(dG < 0) tips.push({ic:'🔥',t:`Grasa bajó ${fmt(Math.abs(dG))} pts y masa magra subió. Estás recomponiendo — no mires solo la báscula, el peso plano no es estancamiento.`});
+  }
+  // proteina
+  const prots = state.dias.filter(d=>d.proteina!==null).map(d=>d.proteina);
+  const protProm = prots.length ? prots.reduce((a,b)=>a+b,0)/prots.length : null;
+  if(protProm!==null && protProm > 200) tips.push({ic:'⚠️',t:`Proteína promedio ${fmt(protProm,0)}g — sobre tu meta de 150g. El exceso no construye más músculo, es gasto sin retorno.`});
+
+  if(!tips.length) return '';
+  return `<div class="reco-header">
+    <div class="reco-title">🎯 Recomendaciones para hoy</div>
+    ${tips.map(t=>`<div class="reco-item"><span>${t.ic}</span><span>${t.t}</span></div>`).join('')}
+  </div>`;
+}
+
 function renderDashboard(){
   const diasConPeso = state.dias.filter(d => d.peso !== null);
   const pesoActual = diasConPeso.length ? diasConPeso[diasConPeso.length-1].peso : null;
@@ -389,8 +418,28 @@ function renderDashboard(){
   const aguaProm = aguas.length ? aguas.reduce((a,b)=>a+b,0)/aguas.length : null;
   const bajadaPct = bajadaTotal !== null ? Math.min(Math.max((bajadaTotal / (BASELINE_LB - META_LB)) * 100, 0), 100) : 0;
 
+  // composicion corporal: primera vs ultima medida
+  const meds = state.medidas.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const m0 = meds[0], mN = meds[meds.length-1];
+  let grasaCard='', magraCard='';
+  if(m0 && mN && meds.length>1){
+    const dGrasa = mN.grasa_corporal - m0.grasa_corporal;
+    const dMagra = mN.masa_magra - m0.masa_magra;
+    grasaCard = `<div class="card">
+      <div class="label">Grasa Corporal</div>
+      <div class="value ${dGrasa<=0?'green':'red'}">${fmt(mN.grasa_corporal)}%</div>
+      <div class="sub">${dGrasa<=0?'▼':'▲'} ${fmt(Math.abs(dGrasa))} pts desde inicio (${fmt(m0.grasa_corporal)}%)</div>
+    </div>`;
+    magraCard = `<div class="card">
+      <div class="label">Masa Magra</div>
+      <div class="value ${dMagra>=0?'green':'red'}">${fmt(mN.masa_magra)} <span style="font-size:1rem;">lb</span></div>
+      <div class="sub">${dMagra>=0?'▲':'▼'} ${fmt(Math.abs(dMagra))} lb desde inicio (${fmt(m0.masa_magra)})</div>
+    </div>`;
+  }
+
   const html = `
     ${protocoloHoy()}
+    ${headerRecomendaciones()}
     <div class="section-title">Resumen — Peso en libras</div>
     <div class="grid">
       <div class="card">
@@ -426,6 +475,8 @@ function renderDashboard(){
         <div class="sub">Objetivo: 4L</div>
         <div class="bar-bg"><div class="bar-fill" style="width:${Math.min((aguaProm/4)*100,100)}%"></div></div>
       </div>
+      ${grasaCard}
+      ${magraCard}
     </div>
     <div class="chart-wrap">
       <canvas id="weightChart" height="180"></canvas>
