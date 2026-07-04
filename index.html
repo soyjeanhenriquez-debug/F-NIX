@@ -55,6 +55,10 @@
   .mtab.active{background:var(--orange);color:#fff;}
   .mform label{display:block;color:var(--sub);font-size:0.8rem;margin:10px 0 4px;}
   .mform input,.mform select{width:100%;padding:12px;background:#0a0a0a;border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:1rem;}
+  .mform textarea{width:100%;padding:12px;background:#0a0a0a;border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:1rem;font-family:inherit;resize:vertical;}
+  .calc-btn{width:100%;padding:12px;background:var(--card);color:var(--orange);border:1px solid var(--orange);border-radius:10px;font-weight:700;margin-top:10px;cursor:pointer;font-size:0.95rem;}
+  .desglose{font-size:0.8rem;color:var(--sub);margin-top:10px;line-height:1.5;}
+  .desglose-total{color:var(--text);font-weight:700;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
   .hint{color:var(--green);font-size:0.82rem;margin-top:6px;min-height:1rem;}
@@ -183,7 +187,10 @@
       <select id="com-momento">
         <option>Desayuno</option><option>Almuerzo</option><option>Snack</option><option>Cena</option>
       </select>
-      <label>Comida</label><input type="text" id="com-comida" placeholder="ej: 200g pollo + batata">
+      <label>Comida (una línea por alimento con gramos)</label>
+      <textarea id="com-comida" rows="4" placeholder="batata 150g&#10;pollo plancha 150g&#10;aguacate 100g&#10;agua 2L"></textarea>
+      <button class="calc-btn" onclick="calcularMacros()">🔢 Calcular macros</button>
+      <div id="com-desglose" class="desglose"></div>
       <div class="row2">
         <div><label>Calorías</label><input type="number" id="com-cal"></div>
         <div><label>Proteína (g)</label><input type="number" id="com-prot"></div>
@@ -277,6 +284,60 @@ function normEj(nombre){
   return nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 }
 function renfitInfo(nombre){ return RENFIT[normEj(nombre)] || null; }
+
+// ---- TABLA DE ALIMENTOS (macros por 100g salvo unidad indicada) ----
+// [kcal, proteina, carbos, grasa] por 100g
+const ALIMENTOS = {
+  'pollo':[165,31,0,3.6],'pollo plancha':[165,31,0,3.6],'pechuga':[165,31,0,3.6],'pechuga pollo':[165,31,0,3.6],
+  'pavo':[135,29,0,1.7],'res':[200,26,0,10],'res magra':[180,27,0,8],'carne molida':[215,26,0,12],'carne molida res':[215,26,0,12],
+  'atun':[116,26,0,1],'atun agua':[116,26,0,1],'salmon':[208,20,0,13],'pescado':[110,23,0,2],'pescado blanco':[110,23,0,2],
+  'huevo':[72,6.3,0.4,4.8],'huevos':[72,6.3,0.4,4.8],'clara':[17,3.6,0.2,0],'claras':[17,3.6,0.2,0],
+  'batata':[86,1.6,20,0.1],'boniato':[86,1.6,20,0.1],'papa':[77,2,17,0.1],'yuca':[160,1.4,38,0.3],'platano':[122,1.3,32,0.4],'platano maduro':[122,1.3,32,0.4],
+  'arroz':[130,2.7,28,0.3],'arroz blanco':[130,2.7,28,0.3],'auyama':[26,1,6.5,0.1],
+  'aguacate':[160,2,9,15],'aceite oliva':[884,0,0,100],'aceite':[884,0,0,100],'nueces':[654,15,14,65],'mani':[567,26,16,49],
+  'queso':[350,25,2,27],'mozzarella':[280,28,3,17],'queso crema':[340,6,4,34],'yogurt':[59,10,3.6,0.4],'yogurt griego':[59,10,3.6,0.4],'chobani':[59,10,3.6,0.4],
+  'brocoli':[34,2.8,7,0.4],'espinaca':[23,2.9,3.6,0.4],'espinacas':[23,2.9,3.6,0.4],'tomate':[18,0.9,3.9,0.2],'lechuga':[15,1.4,2.9,0.2],'pepino':[15,0.7,3.6,0.1],'vegetales':[30,2,5,0.3],'ensalada':[25,1.5,4,0.3],
+  'fresas':[32,0.7,7.7,0.3],'frutos rojos':[45,1,11,0.3],'mango':[60,0.8,15,0.4],'manzana':[52,0.3,14,0.2],
+  'jamon pavo':[100,17,2,2],'jamon de pavo':[100,17,2,2],'tostones':[220,1.5,50,3],'croqueta':[300,12,20,18],'tortilla':[150,11,2,11],'tortilla espinaca':[150,11,2,11],'tortilla de espinacas':[150,11,2,11],
+  'whey':[400,80,8,6],'batido':[400,80,8,6],'proteina':[400,80,8,6],'scoop':[120,24,3,2], // scoop = por unidad
+};
+// unidades que se cuentan por pieza, no por 100g
+const POR_UNIDAD = {'huevo':72,'huevos':72,'scoop':120};
+
+// parsea texto multilinea -> {cal,prot,carb,gra, agua, lineas:[...]}
+function parseComida(texto){
+  const res = {cal:0,prot:0,carb:0,gra:0,agua:0,lineas:[],desconocidos:[]};
+  texto.split(/[\n,]/).forEach(raw => {
+    const linea = raw.trim(); if(!linea) return;
+    const nlinea = normEj(linea);
+    // agua (litros)
+    const mAgua = nlinea.match(/agua.*?([\d.]+)\s*l/) || nlinea.match(/([\d.]+)\s*l.*agua/);
+    if(nlinea.includes('agua') && mAgua){ res.agua += parseFloat(mAgua[1]); res.lineas.push(`💧 ${linea}`); return; }
+    // gramos
+    const mG = nlinea.match(/([\d.]+)\s*g/);
+    // unidades (ej "2 huevos", "1.5 scoops")
+    const mU = nlinea.match(/([\d.]+)\s*(huevo|huevos|scoop|scoops)/);
+    // encontrar alimento por match mas largo
+    let found=null, key='';
+    for(const k of Object.keys(ALIMENTOS)){ if(nlinea.includes(k) && k.length>key.length){ key=k; found=ALIMENTOS[k]; } }
+    if(!found){ res.desconocidos.push(linea); res.lineas.push(`❓ ${linea}`); return; }
+    let cal,pr,ca,gr;
+    const keyU = mU ? normEj(mU[2]).replace(/s$/,'') : null;
+    if(mU && (keyU==='huevo'||keyU==='scoop')){
+      const n = parseFloat(mU[1]);
+      const base = keyU==='huevo' ? ALIMENTOS['huevo'] : ALIMENTOS['scoop'];
+      cal=base[0]*n; pr=base[1]*n; ca=base[2]*n; gr=base[3]*n;
+    } else if(mG){
+      const g = parseFloat(mG[1])/100;
+      cal=found[0]*g; pr=found[1]*g; ca=found[2]*g; gr=found[3]*g;
+    } else {
+      res.desconocidos.push(linea); res.lineas.push(`❓ ${linea} (sin cantidad)`); return;
+    }
+    res.cal+=cal; res.prot+=pr; res.carb+=ca; res.gra+=gr;
+    res.lineas.push(`✓ ${linea} → ${Math.round(cal)}kcal ${Math.round(pr)}g prot`);
+  });
+  return res;
+}
 function esCardio(nombre){ const n=normEj(nombre); return n.includes('cardio')||n.includes('caminadora')||n.includes('caminata')||n.includes('boxeo')||n.includes('bicicleta')||n.includes('eliptica')||n.includes('trot'); }
 
 
@@ -894,6 +955,22 @@ function setMomento(m){
   const sel = document.getElementById('com-momento');
   const cap = m.charAt(0).toUpperCase()+m.slice(1);
   for(const opt of sel.options){ if(opt.value.toLowerCase()===m){ sel.value=opt.value; break; } }
+}
+
+// calcula macros desde el texto de la comida y llena los campos
+function calcularMacros(){
+  const texto = document.getElementById('com-comida').value;
+  if(!texto.trim()){ showToast('Escribe la comida primero'); return; }
+  const r = parseComida(texto);
+  document.getElementById('com-cal').value = Math.round(r.cal);
+  document.getElementById('com-prot').value = Math.round(r.prot);
+  document.getElementById('com-carb').value = Math.round(r.carb);
+  document.getElementById('com-gra').value = Math.round(r.gra);
+  let html = r.lineas.map(l=>`<div>${l}</div>`).join('');
+  if(r.agua>0) html += `<div style="color:var(--orange);margin-top:4px">💧 ${r.agua}L de agua → guárdala en la pestaña "Día"</div>`;
+  if(r.desconocidos.length) html += `<div style="color:#ffb400;margin-top:4px">⚠️ No reconocí: ${r.desconocidos.join(', ')} — mete sus macros a mano o ajusta</div>`;
+  html += `<div class="desglose-total">Total: ${Math.round(r.cal)} kcal · ${Math.round(r.prot)}g prot · ${Math.round(r.carb)}g carb · ${Math.round(r.gra)}g grasa</div>`;
+  document.getElementById('com-desglose').innerHTML = html;
 }
 function closeModal(){ document.getElementById('modal').classList.remove('open'); }
 
