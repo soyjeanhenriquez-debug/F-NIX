@@ -80,6 +80,10 @@
   .obj.bajo{background:rgba(255,180,0,0.12);color:#ffb400;}
   .cardio-block{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);}
   .cardio-title{font-size:0.82rem;font-weight:700;color:var(--sub);margin-bottom:5px;}
+  .protocolo{background:linear-gradient(135deg,rgba(255,90,31,0.12),rgba(255,90,31,0.03));border:1px solid var(--orange-dim);border-radius:14px;padding:14px 16px;margin-bottom:8px;}
+  .protocolo.rest{background:linear-gradient(135deg,rgba(62,207,122,0.1),rgba(62,207,122,0.02));border-color:rgba(62,207,122,0.3);}
+  .proto-head{font-weight:800;font-size:1rem;margin-bottom:6px;}
+  .proto-line{font-size:0.86rem;color:var(--sub);margin-top:4px;line-height:1.35;}
 </style>
 </head>
 <body>
@@ -257,6 +261,29 @@ function renderDayCounter(){
   document.getElementById('dayCounter').textContent = `Día ${d}/60 · En vivo`;
 }
 
+// ---- PROTOCOLO DEL DIA (segun dia de semana) ----
+// Rotacion oficial: Lu D1 Pecho, Ma D2 Espalda, Mi D3 Pierna, Ju descanso activo,
+// Vi D4 Brazos, Sa D5 Tren Inf, Do descanso activo
+function protocoloHoy(){
+  const dow = new Date().getDay(); // 0=Do ... 6=Sa
+  const map = {
+    1:{t:'Día 1 — Pecho + Tríceps', cardio:'Caminadora inclinada / Elíptica 45-60min post-pesas', abs:true},
+    2:{t:'Día 2 — Espalda + Bíceps', cardio:'Elíptica / Bicicleta 45-60min post-pesas', abs:false},
+    3:{t:'Día 3 — Pierna Completa', cardio:'Bicicleta 30min (sin impacto — es día de pierna)', abs:false},
+    4:{t:'Descanso activo', cardio:'Caminata 30-60min suave (recuperación, no quema)', abs:true},
+    5:{t:'Día 4 — Brazos + Hombros', cardio:'Elíptica / Escaladora 45-60min post-pesas', abs:false},
+    6:{t:'Día 5 — Tren Inferior', cardio:'Bicicleta 30min (sin impacto)', abs:true},
+    0:{t:'Descanso activo', cardio:'Caminata / cuerda suave 30-60min (recuperación)', abs:false},
+  };
+  const p = map[dow];
+  const esDescanso = (dow===4||dow===0);
+  return `<div class="protocolo ${esDescanso?'rest':''}">
+    <div class="proto-head">📋 Hoy — ${p.t}</div>
+    <div class="proto-line">🏃 ${p.cardio}</div>
+    ${p.abs?'<div class="proto-line">🎯 Abs recomendado (plancha/dead bug al fallo — por función, no estética)</div>':''}
+  </div>`;
+}
+
 function renderDashboard(){
   const diasConPeso = state.dias.filter(d => d.peso !== null);
   const pesoActual = diasConPeso.length ? diasConPeso[diasConPeso.length-1].peso : null;
@@ -269,6 +296,7 @@ function renderDashboard(){
   const bajadaPct = bajadaTotal !== null ? Math.min(Math.max((bajadaTotal / (BASELINE_LB - META_LB)) * 100, 0), 100) : 0;
 
   const html = `
+    ${protocoloHoy()}
     <div class="section-title">Resumen — Peso en libras</div>
     <div class="grid">
       <div class="card">
