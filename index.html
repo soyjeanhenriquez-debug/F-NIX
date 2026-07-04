@@ -132,6 +132,16 @@
   .reco-item span:first-child{flex-shrink:0;}
   .foto-banner{display:flex;gap:10px;align-items:center;background:linear-gradient(135deg,rgba(255,90,31,0.18),rgba(255,90,31,0.05));border:1px solid var(--orange);border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:0.9rem;line-height:1.4;}
   .foto-banner span:first-child{font-size:1.3rem;}
+  .lista-dia-head{font-weight:800;font-size:1.05rem;margin:6px 0 12px;color:var(--orange);}
+  .dia-descanso{background:rgba(62,207,122,0.1);color:var(--green);padding:12px;border-radius:10px;margin-bottom:12px;font-size:0.88rem;line-height:1.4;}
+  .lde{background:#0a0a0a;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
+  .lde.done{border-color:var(--green);opacity:0.7;}
+  .lde-name{font-weight:700;font-size:0.94rem;}
+  .lde-check{color:var(--green);font-weight:800;}
+  .lde-meta{font-size:0.78rem;color:var(--sub);margin:5px 0 8px;}
+  .lde-inputs{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;}
+  .lde-inputs input{padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.95rem;width:100%;}
+  .lde-save{padding:10px 16px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -162,18 +172,8 @@
     </div>
 
     <div class="mform" id="form-ej">
-      <label>Fecha</label><input type="date" id="ej-fecha">
-      <label>Ejercicio</label>
-      <input list="ej-list" id="ej-nombre" placeholder="Escribe o elige">
-      <datalist id="ej-list"></datalist>
-      <div id="ej-hint" class="hint"></div>
-      <div class="row3">
-        <div><label>Series</label><input type="number" id="ej-series" value="4"></div>
-        <div><label>Reps</label><input type="number" id="ej-reps" value="12"></div>
-        <div><label>Peso (lb)</label><input type="number" id="ej-peso" step="0.5"></div>
-      </div>
-      <label>Notas</label><input type="text" id="ej-notas" placeholder="opcional">
-      <button class="save-btn" onclick="saveEj()">Guardar ejercicio</button>
+      <label>Fecha</label><input type="date" id="ej-fecha" onchange="renderListaDia()">
+      <div id="ej-dia-lista"></div>
     </div>
 
     <div class="mform" id="form-com" style="display:none">
@@ -792,8 +792,88 @@ function todayStr(){
 function openModal(){
   document.getElementById('modal').classList.add('open');
   ['ej-fecha','com-fecha','dia-fecha'].forEach(id => { if(!document.getElementById(id).value) document.getElementById(id).value = todayStr(); });
-  populateEjList();
+  renderListaDia();
   actualizarFaltanHoy();
+}
+
+// mapea fecha -> dia de reto segun dia de semana
+function diaRetoDeFecha(fechaStr){
+  const d = new Date(fechaStr+'T12:00:00').getDay();
+  return {1:1,2:2,3:3,5:4,6:5}[d] || null;
+}
+
+// lista fija de ejercicios del dia, en orden, con series precargadas
+function renderListaDia(){
+  const fecha = document.getElementById('ej-fecha').value;
+  const diaReto = diaRetoDeFecha(fecha);
+  const cont = document.getElementById('ej-dia-lista');
+  if(!diaReto){
+    cont.innerHTML = `<div class="dia-descanso">Día de descanso activo — no hay rutina de pesas.<br>Registra cardio/actividad abajo:</div>
+      <label>Actividad</label><input type="text" id="ej-libre-nombre" placeholder="ej: Caminata playa, Boxeo 5min">
+      <label>Notas</label><input type="text" id="ej-libre-notas" placeholder="tiempo, distancia, bpm">
+      <button class="save-btn" onclick="saveLibre()">Guardar actividad</button>`;
+    return;
+  }
+  // ejercicios oficiales del dia, dedup por orden
+  const ejs = Object.entries(RENFIT).filter(([k,v])=>v.d===diaReto)
+    .reduce((acc,[k,v])=>{ if(!acc.find(x=>x.o===v.o)) acc.push({nombre:k,...v}); return acc; },[])
+    .sort((a,b)=>a.o-b.o);
+  const nombreDia = {1:'Día 1 — Pecho + Tríceps',2:'Día 2 — Espalda + Bíceps',3:'Día 3 — Pierna Completa',4:'Día 4 — Brazos + Hombros',5:'Día 5 — Tren Inferior'}[diaReto];
+
+  // ya registrados hoy (para marcar check)
+  const yaHoy = new Set(state.ejercicios.filter(e=>e.fecha===fecha && renfitInfo(e.ejercicio)).map(e=>renfitInfo(e.ejercicio).o+'-'+renfitInfo(e.ejercicio).d));
+
+  let html = `<div class="lista-dia-head">${nombreDia}</div>`;
+  ejs.forEach(ej => {
+    const nombreCap = ej.nombre.replace(/\b\w/g,c=>c.toUpperCase());
+    // ultimo peso + sugerido
+    const hist = state.ejercicios.filter(e=>renfitInfo(e.ejercicio)&&renfitInfo(e.ejercicio).o===ej.o&&renfitInfo(e.ejercicio).d===ej.d&&e.peso).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    const ult = hist.length?hist[0].peso:null;
+    const sug = ult?Math.round(ult*1.05*2)/2:null;
+    const hecho = yaHoy.has(ej.o+'-'+ej.d);
+    html += `<div class="lde ${hecho?'done':''}" data-o="${ej.o}" data-d="${ej.d}" data-nombre="${nombreCap}" data-series="${ej.series}">
+      <div class="lde-top">
+        <span class="lde-name"><span class="ex-num">#${ej.o}</span>${nombreCap} ${hecho?'<span class="lde-check">✓</span>':''}</span>
+      </div>
+      <div class="lde-meta">${ej.series}×${ej.reps} obj${ult?` · últ: ${fmt(ult)}lb`:''}${sug?` · <b style="color:var(--orange)">meta: ${sug}lb</b>`:' · calibrar'}</div>
+      <div class="lde-inputs">
+        <input type="number" class="lde-reps" placeholder="reps" value="${parseInt(ej.reps)||''}">
+        <input type="number" class="lde-peso" step="0.5" placeholder="${sug||'peso'} lb">
+        <button class="lde-save" onclick="saveEjLista(this)">Guardar</button>
+      </div>
+    </div>`;
+  });
+  cont.innerHTML = html;
+}
+
+async function saveEjLista(btn){
+  const row = btn.closest('.lde');
+  const reps = parseInt(row.querySelector('.lde-reps').value);
+  const peso = parseFloat(row.querySelector('.lde-peso').value);
+  if(!reps || !peso){ showToast('Falta reps o peso'); return; }
+  const data = {
+    fecha: document.getElementById('ej-fecha').value,
+    ejercicio: row.dataset.nombre,
+    series: parseInt(row.dataset.series),
+    reps, peso, notas: null
+  };
+  const {error} = await sb.from('fenix_ejercicios').insert(data);
+  if(error){ showToast('Error: '+error.message); return; }
+  await loadAll();
+  row.classList.add('done');
+  row.querySelector('.lde-name').insertAdjacentHTML('beforeend',' <span class="lde-check">✓</span>');
+  showToast(`${data.ejercicio} guardado ✓`);
+}
+
+async function saveLibre(){
+  const nombre = document.getElementById('ej-libre-nombre').value.trim();
+  const notas = document.getElementById('ej-libre-notas').value.trim();
+  if(!nombre){ showToast('Falta la actividad'); return; }
+  const {error} = await sb.from('fenix_ejercicios').insert({fecha:document.getElementById('ej-fecha').value, ejercicio:nombre, series:1, reps:null, peso:null, notas:notas||null});
+  if(error){ showToast('Error: '+error.message); return; }
+  document.getElementById('ej-libre-nombre').value='';
+  document.getElementById('ej-libre-notas').value='';
+  await loadAll(); showToast('Actividad guardada ✓');
 }
 
 // muestra en el form de comida que momentos faltan HOY
@@ -827,50 +907,10 @@ document.querySelectorAll('.mtab').forEach(t => {
   });
 });
 
-function populateEjList(){
-  const names = [...new Set(state.ejercicios.map(e=>e.ejercicio))];
-  document.getElementById('ej-list').innerHTML = names.map(n=>`<option value="${n}">`).join('');
-}
-
-// Al escribir ejercicio, mostrar ultimo peso + sugerencia +5%
-document.getElementById('ej-nombre').addEventListener('change', function(){
-  const nombre = this.value.trim();
-  const hist = state.ejercicios.filter(e => e.ejercicio === nombre && e.peso).sort((a,b)=>b.fecha.localeCompare(a.fecha));
-  const hint = document.getElementById('ej-hint');
-  if(hist.length){
-    const ultimo = hist[0].peso;
-    const sug = Math.round(ultimo * 1.05 * 2) / 2;
-    hint.textContent = `Última vez: ${ultimo} lb (${hist[0].fecha.slice(5)}) · +5% sugerido: ${sug} lb`;
-    document.getElementById('ej-peso').placeholder = sug;
-  } else {
-    hint.textContent = 'Primera vez con este ejercicio — sin referencia previa';
-    document.getElementById('ej-peso').placeholder = '';
-  }
-});
-
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2200);
-}
-
-async function saveEj(){
-  const row = {
-    fecha: document.getElementById('ej-fecha').value,
-    ejercicio: document.getElementById('ej-nombre').value.trim(),
-    series: parseInt(document.getElementById('ej-series').value)||null,
-    reps: parseInt(document.getElementById('ej-reps').value)||null,
-    peso: parseFloat(document.getElementById('ej-peso').value)||null,
-    notas: document.getElementById('ej-notas').value.trim()||null
-  };
-  if(!row.ejercicio){ showToast('Falta el ejercicio'); return; }
-  const {error} = await sb.from('fenix_ejercicios').insert(row);
-  if(error){ showToast('Error: '+error.message); return; }
-  document.getElementById('ej-nombre').value='';
-  document.getElementById('ej-peso').value='';
-  document.getElementById('ej-notas').value='';
-  document.getElementById('ej-hint').textContent='';
-  await loadAll(); showToast('Ejercicio guardado ✓');
 }
 
 async function saveCom(){
