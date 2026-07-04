@@ -62,6 +62,17 @@
   .close-btn{width:100%;padding:12px;background:transparent;color:var(--sub);border:none;margin-top:8px;cursor:pointer;}
   .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;padding:12px 24px;border-radius:24px;font-weight:700;opacity:0;transition:opacity 0.3s;z-index:200;pointer-events:none;}
   .toast.show{opacity:1;}
+  .ex-row{padding:12px 0;border-bottom:1px solid var(--border);}
+  .ex-row:last-child{border-bottom:none;}
+  .ex-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+  .ex-name{font-weight:700;font-size:0.98rem;}
+  .ex-load{color:var(--text);font-size:0.9rem;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .prog{display:inline-block;margin-top:5px;font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:6px;font-variant-numeric:tabular-nums;}
+  .prog.up{background:rgba(62,207,122,0.15);color:var(--green);}
+  .prog.down{background:rgba(255,82,82,0.15);color:var(--red);}
+  .prog.same{background:#262626;color:var(--sub);}
+  .prog.new{background:var(--orange-dim);color:var(--orange);}
+  .ex-note{color:var(--sub);font-size:0.8rem;margin-top:5px;line-height:1.35;}
 </style>
 </head>
 <body>
@@ -265,15 +276,45 @@ function renderEntrenamientos(){
   });
   const allDates = new Set([...Object.keys(byDate), ...state.dias.map(d=>d.fecha)]);
   const dates = [...allDates].sort().reverse();
+
+  // helper: encontrar la vez ANTERIOR del mismo ejercicio antes de una fecha dada
+  function prevPeso(nombre, fecha){
+    const hist = state.ejercicios
+      .filter(e => e.ejercicio === nombre && e.peso && e.fecha < fecha)
+      .sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    return hist.length ? hist[0] : null;
+  }
+
   let html = `<div class="section-title">Entrenamientos</div>`;
   dates.forEach(fecha => {
     const diaLog = state.dias.find(d => d.fecha === fecha);
     const tienePesas = byDate[fecha] && byDate[fecha].length;
     html += `<div class="entry"><div class="entry-date">${fecha}${!tienePesas ? '<span class="day-badge">DESCANSO / CARDIO</span>' : ''}</div>`;
+
     if(tienePesas){
       byDate[fecha].forEach(e => {
-        html += `<div class="entry-body"><b>${e.ejercicio}</b> — ${e.series}×${e.reps} ${e.peso ? '@ '+fmt(e.peso)+' lb' : ''}</div>`;
-        if(e.notas) html += `<div class="macro">${e.notas}</div>`;
+        // bloque de progresion
+        let prog = '';
+        if(e.peso){
+          const prev = prevPeso(e.ejercicio, fecha);
+          if(prev){
+            const diff = e.peso - prev.peso;
+            const pct = ((diff / prev.peso) * 100);
+            let cls = diff > 0 ? 'up' : (diff < 0 ? 'down' : 'same');
+            let arrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '=');
+            prog = `<span class="prog ${cls}">${arrow} ${diff>0?'+':''}${fmt(diff)} lb (${pct>0?'+':''}${fmt(pct,0)}%) vs ${prev.fecha.slice(5)}</span>`;
+          } else {
+            prog = `<span class="prog new">nuevo</span>`;
+          }
+        }
+        html += `<div class="ex-row">
+          <div class="ex-head">
+            <span class="ex-name">${e.ejercicio}</span>
+            <span class="ex-load">${e.series}×${e.reps}${e.peso ? ' · '+fmt(e.peso)+' lb' : ''}</span>
+          </div>
+          ${prog}
+          ${e.notas ? `<div class="ex-note">${e.notas}</div>` : ''}
+        </div>`;
       });
     }
     if(diaLog && diaLog.notas){
