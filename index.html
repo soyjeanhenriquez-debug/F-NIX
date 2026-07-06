@@ -89,6 +89,10 @@
   .proto-head{font-weight:800;font-size:1rem;margin-bottom:6px;}
   .proto-line{font-size:0.86rem;color:var(--sub);margin-top:4px;line-height:1.35;}
   .proto-tap{float:right;font-size:0.78rem;color:var(--orange);font-weight:700;}
+  .core-extra{background:rgba(255,90,31,0.08);border-radius:10px;padding:10px 12px;margin:8px 0;}
+  .core-extra-h{font-size:0.82rem;font-weight:700;color:var(--orange);margin-bottom:6px;}
+  .core-extra-item{font-size:0.83rem;color:var(--sub);line-height:1.45;margin-top:3px;}
+  .core-extra-item b{color:var(--text);}
   .dia-panel{padding-bottom:20px;}
   .dia-panel-head{display:flex;justify-content:space-between;align-items:center;font-size:1.15rem;font-weight:800;margin:8px 0 16px;}
   .dia-close{background:var(--card);border:1px solid var(--border);color:var(--text);width:34px;height:34px;border-radius:50%;font-size:1rem;cursor:pointer;}
@@ -382,6 +386,29 @@ function renderDayCounter(){
 // ---- PROTOCOLO DEL DIA (segun dia de semana) ----
 // Rotacion oficial: Lu D1 Pecho, Ma D2 Espalda, Mi D3 Pierna, Ju descanso activo,
 // Vi D4 Brazos, Sa D5 Tren Inf, Do descanso activo
+// core/abs extra segun dia de semana (Renfit: 2-3x/sem, nunca seguidos, fin de rutina)
+const CORE_DIA = {
+  2:[ // Martes - Dia 2 Espalda
+    {n:'Plancha frontal', s:'3 sets al fallo', d:'60-90s'},
+    {n:'Dead bug', s:'3×10 por lado', d:'60s'}
+  ],
+  5:[ // Viernes - Dia 4 Brazos
+    {n:'Plancha lateral', s:'2 sets/lado al fallo', d:'60s'},
+    {n:'Hipopresivos', s:'5-10 sets', d:'1-1.5min'}
+  ],
+  0:[ // Domingo - descanso activo
+    {n:'Hipopresivos', s:'5-10 sets (mitad de pie, mitad cuadrupedia)', d:'1-1.5min'}
+  ]
+};
+function coreHoy(dow){
+  const c = CORE_DIA[dow];
+  if(!c) return '';
+  return `<div class="core-extra">
+    <div class="core-extra-h">🎯 Core extra (después de las pesas, antes del cardio)</div>
+    ${c.map((x,i)=>`<div class="core-extra-item"><b>Extra #${i+1} — ${x.n}</b> · ${x.s} · descanso ${x.d}</div>`).join('')}
+  </div>`;
+}
+
 function protocoloHoy(){
   const dow = new Date().getDay(); // 0=Do ... 6=Sa
   const map = {
@@ -397,8 +424,9 @@ function protocoloHoy(){
   const esDescanso = (dow===4||dow===0);
   return `<div class="protocolo ${esDescanso?'rest':''}" ${!esDescanso?'onclick="abrirDiaHoy('+dow+')" style="cursor:pointer"':''}>
     <div class="proto-head">📋 Hoy — ${p.t} ${!esDescanso?'<span class="proto-tap">ver ejercicios ›</span>':''}</div>
+    ${coreHoy(dow)}
     <div class="proto-line">🏃 ${p.cardio}</div>
-    ${p.abs?'<div class="proto-line">🎯 Abs recomendado (plancha/dead bug al fallo — por función, no estética)</div>':''}
+    ${p.abs?'<div class="proto-line">🎯 Core: ver bloque extra arriba</div>':''}
   </div>`;
 }
 
@@ -447,6 +475,8 @@ function abrirDiaHoy(dow){
     </div>`;
   });
 
+  const retoADow = {1:1,2:2,3:3,4:5,5:6}; // diaReto -> dia semana
+  html += coreHoy(retoADow[diaReto]);
   html += `<div class="dia-cardio-note">🏃 Recuerda: cardio al terminar las pesas (ver arriba en el dashboard)</div>`;
   html += `</div>`;
   document.getElementById('app').innerHTML = html;
