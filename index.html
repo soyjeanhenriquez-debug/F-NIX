@@ -290,6 +290,16 @@ const RENFIT = {
   'elevaciones talones de pie maquina':{d:5,o:5,g:'Pantorrillas',reps:'10-12',series:4},
   'elevaciones talones de pie smith':{d:5,o:5,g:'Pantorrillas',reps:'10-12',series:4},
   'elevaciones talones sentado':{d:5,o:6,g:'Pantorrillas',reps:'8-12',series:5},
+  // ALIAS de nombres reales usados en registros que no matcheaban
+  'chest press maquina':{d:1,o:2,g:'Pecho',reps:'12',series:4},
+  'jalon al pecho supino':{d:2,o:1,g:'Espalda',reps:'8-10',series:4},
+  'jalon polea baja agarre neutro':{d:2,o:2,g:'Espalda',reps:'8-10',series:4},
+  'jalon cerrado agarre neutro maquina':{d:2,o:2,g:'Espalda',reps:'8-10',series:4},
+  'curls maquina biceps':{d:2,o:5,g:'Biceps',reps:'12-15',series:3},
+  'curls biceps polea baja':{d:2,o:6,g:'Biceps',reps:'12-15',series:3},
+  'elevaciones de talones sentado':{d:5,o:6,g:'Pantorrillas',reps:'8-12',series:5},
+  'press inclinado maquina hombros':{d:4,o:1,g:'Hombros',reps:'8-10',series:4},
+  'pajaros sentado mancuernas':{d:4,o:3,g:'Hombros',reps:'12-15',series:3},
 };
 function normEj(nombre){
   return nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
