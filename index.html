@@ -147,6 +147,12 @@
   .agua-btns{display:flex;gap:8px;margin-top:12px;}
   .agua-btns button{flex:1;padding:11px 0;background:#0a0a0a;border:1px solid var(--orange);color:var(--orange);border-radius:9px;font-weight:700;font-size:0.9rem;cursor:pointer;}
   .agua-btns button.agua-menos{border-color:var(--border);color:var(--sub);flex:0.7;}
+  .hipo-card{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;}
+  .hipo-card.done{border-color:var(--green);}
+  .hipo-title{font-weight:700;}
+  .hipo-sub{font-size:0.8rem;color:var(--sub);margin-top:3px;}
+  .hipo-btn{padding:10px 18px;background:#0a0a0a;border:1px solid var(--orange);color:var(--orange);border-radius:9px;font-weight:700;cursor:pointer;white-space:nowrap;}
+  .hipo-btn.on{background:var(--green);border-color:var(--green);color:#000;}
   .lista-dia-head{font-weight:800;font-size:1.05rem;margin:6px 0 12px;color:var(--orange);}
   .dia-descanso{background:rgba(62,207,122,0.1);color:var(--green);padding:12px;border-radius:10px;margin-bottom:12px;font-size:0.88rem;line-height:1.4;}
   .lde{background:#0a0a0a;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
@@ -362,7 +368,7 @@ function parseComida(texto){
 function esCardio(nombre){ const n=normEj(nombre); return n.includes('cardio')||n.includes('caminadora')||n.includes('caminata')||n.includes('boxeo')||n.includes('bicicleta')||n.includes('eliptica')||n.includes('trot'); }
 
 
-let state = { dias: [], ejercicios: [], comidas: [], medidas: [] };
+let state = { dias: [], ejercicios: [], comidas: [], medidas: [], habitos: [] };
 
 function daysSinceStart(){
   const now = new Date();
@@ -376,16 +382,18 @@ function fmt(n, d=1){
 }
 
 async function loadAll(){
-  const [dias, ejercicios, comidas, medidas] = await Promise.all([
+  const [dias, ejercicios, comidas, medidas, habitos] = await Promise.all([
     sb.from('fenix_dias').select('*').order('fecha'),
     sb.from('fenix_ejercicios').select('*').order('fecha', {ascending:false}),
     sb.from('fenix_comidas').select('*').order('fecha', {ascending:false}),
-    sb.from('fenix_medidas').select('*').order('fecha')
+    sb.from('fenix_medidas').select('*').order('fecha'),
+    sb.from('fenix_habitos').select('*')
   ]);
   state.dias = dias.data || [];
   state.ejercicios = ejercicios.data || [];
   state.comidas = comidas.data || [];
   state.medidas = medidas.data || [];
+  state.habitos = habitos.data || [];
 }
 
 function renderDayCounter(){
@@ -403,11 +411,7 @@ const CORE_DIA = {
     {n:'Dead bug', s:'3×10 por lado', d:'60s'}
   ],
   5:[ // Viernes - Dia 4 Brazos
-    {n:'Plancha lateral', s:'2 sets/lado al fallo', d:'60s'},
-    {n:'Hipopresivos', s:'5-10 sets', d:'1-1.5min'}
-  ],
-  0:[ // Domingo - descanso activo
-    {n:'Hipopresivos', s:'5-10 sets (mitad de pie, mitad cuadrupedia)', d:'1-1.5min'}
+    {n:'Plancha lateral', s:'2 sets/lado al fallo', d:'60s'}
   ]
 };
 function coreHoy(dow){
@@ -534,6 +538,37 @@ async function addAgua(delta){
   renderDashboard();
 }
 
+// widget hipopresivos diario en ayunas
+function hipopresivosWidget(){
+  const hoy = todayStr();
+  const h = state.habitos.find(x=>x.fecha===hoy);
+  const hecho = h && h.hipopresivos;
+  // racha: dias consecutivos hasta hoy
+  let racha=0;
+  for(let i=0;i<60;i++){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const f=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const reg=state.habitos.find(x=>x.fecha===f);
+    if(reg&&reg.hipopresivos) racha++; else if(i>0) break; else if(i===0&&!hecho) continue; else break;
+  }
+  return `<div class="hipo-card ${hecho?'done':''}">
+    <div class="hipo-info">
+      <div class="hipo-title">🫁 Hipopresivos (ayunas)</div>
+      <div class="hipo-sub">${hecho?`✓ Hecho hoy${racha>1?` · racha ${racha} días`:''}`:'Pendiente — 5-10 sets, mitad de pie mitad cuadrupedia'}</div>
+    </div>
+    <button class="hipo-btn ${hecho?'on':''}" onclick="toggleHipo()">${hecho?'✓':'Marcar'}</button>
+  </div>`;
+}
+async function toggleHipo(){
+  const hoy = todayStr();
+  const h = state.habitos.find(x=>x.fecha===hoy);
+  const nuevo = !(h && h.hipopresivos);
+  const {error} = await sb.from('fenix_habitos').upsert({fecha:hoy, hipopresivos:nuevo}, {onConflict:'fecha'});
+  if(error){ showToast('Error: '+error.message); return; }
+  await loadAll(); renderDashboard();
+  if(nuevo) showToast('Hipopresivos ✓');
+}
+
 function headerRecomendaciones(){
   const tips = [];
   // agua
@@ -596,6 +631,7 @@ function renderDashboard(){
     ${fotoLunesBanner()}
     ${headerRecomendaciones()}
     ${aguaTracker()}
+    ${hipopresivosWidget()}
     <div class="section-title">Resumen — Peso en libras</div>
     <div class="grid">
       <div class="card">
