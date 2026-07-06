@@ -105,6 +105,7 @@
   .spec.sug{background:var(--orange-dim);color:var(--orange);}
   .spec.mejora{background:rgba(62,207,122,0.15);color:var(--green);}
   .spec.new{background:rgba(255,180,0,0.12);color:#ffb400;}
+  .spec.desc{background:rgba(120,120,255,0.12);color:#9a9aff;}
   .dia-cardio-note{margin-top:14px;padding:12px;background:#0a0a0a;border-radius:10px;font-size:0.84rem;color:var(--sub);}
   #ptr{position:fixed;top:-50px;left:50%;transform:translateX(-50%);width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--orange);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:1.3rem;z-index:80;opacity:0;transition:opacity 0.15s;}
   #ptr.spin{animation:ptrspin 0.7s linear infinite;}
@@ -312,6 +313,12 @@ function normEj(nombre){
 }
 function renfitInfo(nombre){ return RENFIT[normEj(nombre)] || null; }
 
+// descanso oficial Renfit: basicos pesados 90-120s, resto 60-90s
+function descansoRenfit(nombre){
+  const pesados = ['press banco plano smith','press plano smith','prensa militar maquina','press militar maquina','peso muerto barra','sentadilla smith','sentadilla maquina smith','prensa de piernas','prensa piernas'];
+  return pesados.includes(normEj(nombre)) ? '90-120s' : '60-90s';
+}
+
 // ---- TABLA DE ALIMENTOS (macros por 100g salvo unidad indicada) ----
 // [kcal, proteina, carbos, grasa] por 100g
 const ALIMENTOS = {
@@ -482,6 +489,7 @@ function abrirDiaHoy(dow){
       </div>
       <div class="dia-ex-specs">
         <span class="spec">${ej.series}×${ej.reps} reps</span>
+        <span class="spec desc">⏱ ${descansoRenfit(ej.nombre)}</span>
         ${ultimo ? `<span class="spec">último: ${fmt(ultimo.peso)} lb</span>` : ''}
         ${sug ? `<span class="spec sug">objetivo hoy: ${sug} lb</span>` : `<span class="spec new">primera vez — calibrar</span>`}
         ${ultimo ? `<span class="spec mejora">${mejora}</span>` : ''}
@@ -1024,7 +1032,7 @@ function renderListaDia(){
       <div class="lde-top">
         <span class="lde-name"><span class="ex-num">#${ej.o}</span>${nombreCap} ${hecho?'<span class="lde-check">✓</span>':''}</span>
       </div>
-      <div class="lde-meta">${ej.series}×${ej.reps} obj${ult?` · últ: ${fmt(ult)}lb`:''}${sug?` · <b style="color:var(--orange)">meta: ${sug}lb</b>`:' · calibrar'}</div>
+      <div class="lde-meta">${ej.series}×${ej.reps} obj · ⏱${descansoRenfit(ej.nombre)}${ult?` · últ: ${fmt(ult)}lb`:''}${sug?` · <b style="color:var(--orange)">meta: ${sug}lb</b>`:' · calibrar'}</div>
       <div class="lde-inputs">
         <input type="number" class="lde-reps" placeholder="reps" value="${parseInt(ej.reps)||''}">
         <input type="number" class="lde-peso" step="0.5" placeholder="${sug||'peso'} lb">
