@@ -136,6 +136,13 @@
   .reco-item span:first-child{flex-shrink:0;}
   .foto-banner{display:flex;gap:10px;align-items:center;background:linear-gradient(135deg,rgba(255,90,31,0.18),rgba(255,90,31,0.05));border:1px solid var(--orange);border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:0.9rem;line-height:1.4;}
   .foto-banner span:first-child{font-size:1.3rem;}
+  .agua-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;}
+  .agua-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
+  .agua-label{font-weight:700;}
+  .agua-val{font-weight:800;font-size:1.2rem;}
+  .agua-btns{display:flex;gap:8px;margin-top:12px;}
+  .agua-btns button{flex:1;padding:11px 0;background:#0a0a0a;border:1px solid var(--orange);color:var(--orange);border-radius:9px;font-weight:700;font-size:0.9rem;cursor:pointer;}
+  .agua-btns button.agua-menos{border-color:var(--border);color:var(--sub);flex:0.7;}
   .lista-dia-head{font-weight:800;font-size:1.05rem;margin:6px 0 12px;color:var(--orange);}
   .dia-descanso{background:rgba(62,207,122,0.1);color:var(--green);padding:12px;border-radius:10px;margin-bottom:12px;font-size:0.88rem;line-height:1.4;}
   .lde{background:#0a0a0a;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
@@ -455,6 +462,38 @@ function fotoLunesBanner(){
 }
 
 // header de recomendaciones personales — dinamico segun datos reales
+// tracker de agua del dia con botones rapidos
+function aguaTracker(){
+  const hoy = todayStr();
+  const dia = state.dias.find(d=>d.fecha===hoy);
+  const actual = dia && dia.agua!==null ? dia.agua : 0;
+  const pct = Math.min((actual/4)*100,100);
+  const color = actual>=4?'var(--green)':(actual>=3?'var(--orange)':'var(--red)');
+  return `<div class="agua-card">
+    <div class="agua-top">
+      <span class="agua-label">💧 Agua hoy</span>
+      <span class="agua-val" style="color:${color}">${fmt(actual)}L <span style="color:var(--sub);font-size:0.9rem;">/ 4L</span></span>
+    </div>
+    <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    <div class="agua-btns">
+      <button onclick="addAgua(0.25)">+250ml</button>
+      <button onclick="addAgua(0.5)">+500ml</button>
+      <button onclick="addAgua(1)">+1L</button>
+      <button onclick="addAgua(-0.25)" class="agua-menos">−250</button>
+    </div>
+  </div>`;
+}
+async function addAgua(delta){
+  const hoy = todayStr();
+  const dia = state.dias.find(d=>d.fecha===hoy);
+  const actual = dia && dia.agua!==null ? dia.agua : 0;
+  const nuevo = Math.max(0, Math.round((actual+delta)*100)/100);
+  const {error} = await sb.from('fenix_dias').upsert({fecha:hoy, agua:nuevo}, {onConflict:'fecha'});
+  if(error){ showToast('Error: '+error.message); return; }
+  await loadAll();
+  renderDashboard();
+}
+
 function headerRecomendaciones(){
   const tips = [];
   // agua
@@ -516,6 +555,7 @@ function renderDashboard(){
     ${protocoloHoy()}
     ${fotoLunesBanner()}
     ${headerRecomendaciones()}
+    ${aguaTracker()}
     <div class="section-title">Resumen — Peso en libras</div>
     <div class="grid">
       <div class="card">
