@@ -862,7 +862,7 @@ function renderNutricion(){
     const totalCal = items.reduce((s,i)=>s+(Number(i.calorias)||0),0);
     const totalProt = items.reduce((s,i)=>s+(Number(i.proteina)||0),0);
     const esGym = diasConPesas.has(fecha);
-    const techo = esGym ? 1700 : 1400;
+    const techo = esGym ? 1800 : 1600;
     const hizoEjercicio = esGym || diasConCardio.has(fecha) || diasConNota.has(fecha);
 
     // --- SCORE DEL DIA (3 criterios) ---
@@ -950,8 +950,8 @@ function renderGuia(){
     <div class="guia-card">
       <div class="guia-h">🔥 Límite calórico (por mi peso 230lb, 5x/sem + cardio)</div>
       <ul class="guia-ul">
-        <li>Días de gym: <b>1,600–1,700 kcal</b></li>
-        <li>Días de descanso: <b>1,400 kcal</b></li>
+        <li>Días de gym: <b>1,800 kcal</b></li>
+        <li>Días de descanso: <b>1,600 kcal</b></li>
         <li>Proteína: <b>150g objetivo</b>, techo útil <b>230g</b></li>
         <li>Déficit óptimo: <b>500–700 kcal/día</b> (perder grasa sin canibalizar músculo)</li>
       </ul>
