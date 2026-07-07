@@ -154,6 +154,17 @@
   .hipo-sub{font-size:0.8rem;color:var(--sub);margin-top:3px;}
   .hipo-btn{padding:10px 18px;background:#0a0a0a;border:1px solid var(--orange);color:var(--orange);border-radius:9px;font-weight:700;cursor:pointer;white-space:nowrap;}
   .hipo-btn.on{background:var(--green);border-color:var(--green);color:#000;}
+  .ritmo-card{background:linear-gradient(135deg,rgba(255,90,31,0.12),rgba(255,90,31,0.03));border:1px solid var(--orange-dim);border-radius:14px;padding:16px;margin-bottom:12px;}
+  .ritmo-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;flex-wrap:wrap;gap:4px;}
+  .ritmo-title{font-weight:800;font-size:1rem;}
+  .ritmo-pace{font-size:0.75rem;color:var(--sub);}
+  .ritmo-row{display:flex;gap:8px;}
+  .ritmo-box{flex:1;background:#0a0a0a;border-radius:10px;padding:10px;text-align:center;}
+  .ritmo-lbl{font-size:0.7rem;color:var(--sub);text-transform:uppercase;}
+  .ritmo-val{font-size:1.1rem;font-weight:800;margin-top:3px;}
+  .ritmo-msg{margin-top:10px;font-size:0.82rem;font-weight:600;padding:8px;border-radius:8px;text-align:center;}
+  .ritmo-msg.ok{background:rgba(62,207,122,0.12);color:var(--green);}
+  .ritmo-msg.off{background:rgba(255,82,82,0.12);color:var(--red);}
   .lista-dia-head{font-weight:800;font-size:1.05rem;margin:6px 0 12px;color:var(--orange);}
   .dia-descanso{background:rgba(62,207,122,0.1);color:var(--green);padding:12px;border-radius:10px;margin-bottom:12px;font-size:0.88rem;line-height:1.4;}
   .lde{background:#0a0a0a;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
@@ -247,7 +258,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const PROJECT_START = new Date("2026-06-30T00:00:00");
 const BASELINE_LB = 235.9; // peso inicio, 22 jun, ya en libras
-const META_LB = 198.4;     // 90kg convertido a lb
+const META_LB = 217;       // objetivo dia 60 (0.9%/semana desde 232)
+const RITMO_SEMANAL = 0.009;
 
 // ---- RUTINA OFICIAL RENFIT (Mes 1) — orden + rango reps objetivo ----
 // clave normalizada del ejercicio -> {orden, dia, grupo, reps, series}
@@ -577,6 +589,34 @@ async function toggleHipo(){
   if(nuevo) showToast('Hipopresivos ✓');
 }
 
+// tarjeta de ritmo objetivo: donde deberia estar hoy vs peso real
+function ritmoObjetivo(){
+  const START_PESO = 232;
+  const START_FECHA = new Date('2026-07-07T00:00:00'); // inicio del tracking de ritmo
+  const hoy = new Date();
+  const semanas = Math.max(0,(hoy - START_FECHA)/(7*86400000));
+  const pesoIdeal = START_PESO * Math.pow(1-RITMO_SEMANAL, semanas);
+  // peso actual real
+  const diasP = state.dias.filter(d=>d.peso!==null).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const pesoReal = diasP.length ? diasP[diasP.length-1].peso : START_PESO;
+  const diff = pesoReal - pesoIdeal;
+  const enRitmo = diff <= 0.5;
+  const semanaActual = Math.floor(semanas)+1;
+  const objSemana = START_PESO * Math.pow(1-RITMO_SEMANAL, Math.ceil(semanas));
+  return `<div class="ritmo-card">
+    <div class="ritmo-top">
+      <span class="ritmo-title">🎯 Meta: ${META_LB} lb (día 60)</span>
+      <span class="ritmo-pace">0.9%/sem · ~0.30 lb/día</span>
+    </div>
+    <div class="ritmo-row">
+      <div class="ritmo-box"><div class="ritmo-lbl">Deberías ir</div><div class="ritmo-val">${fmt(pesoIdeal)} lb</div></div>
+      <div class="ritmo-box"><div class="ritmo-lbl">Vas</div><div class="ritmo-val" style="color:${enRitmo?'var(--green)':'var(--red)'}">${fmt(pesoReal)} lb</div></div>
+      <div class="ritmo-box"><div class="ritmo-lbl">Meta sem ${semanaActual}</div><div class="ritmo-val">${fmt(objSemana)} lb</div></div>
+    </div>
+    <div class="ritmo-msg ${enRitmo?'ok':'off'}">${enRitmo?'✓ En ritmo o adelantado':`⚠️ ${fmt(Math.abs(diff))} lb por encima del ritmo — aprieta déficit y agua`}</div>
+  </div>`;
+}
+
 function headerRecomendaciones(){
   const tips = [];
   // agua
@@ -638,6 +678,7 @@ function renderDashboard(){
     ${protocoloHoy()}
     ${fotoLunesBanner()}
     ${headerRecomendaciones()}
+    ${ritmoObjetivo()}
     ${aguaTracker()}
     ${hipopresivosWidget()}
     <div class="section-title">Resumen — Peso en libras</div>
