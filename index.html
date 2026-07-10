@@ -632,7 +632,7 @@ function headerRecomendaciones(){
   // proteina
   const prots = state.dias.filter(d=>d.proteina!==null).map(d=>d.proteina);
   const protProm = prots.length ? prots.reduce((a,b)=>a+b,0)/prots.length : null;
-  if(protProm!==null && protProm > 200) tips.push({ic:'⚠️',t:`Proteína promedio ${fmt(protProm,0)}g — sobre tu meta de 150g. El exceso no construye más músculo, es gasto sin retorno.`});
+  if(protProm!==null && protProm > 230) tips.push({ic:'⚠️',t:`Proteína promedio ${fmt(protProm,0)}g — sobre el techo util de 230g. El exceso no construye más músculo, es gasto sin retorno.`});
 
   if(!tips.length) return '';
   return `<div class="reco-header">
@@ -707,8 +707,8 @@ function renderDashboard(){
       <div class="card">
         <div class="label">Proteína Promedio</div>
         <div class="value">${fmt(proteinaProm,0)}g</div>
-        <div class="sub">Objetivo: 140-150g</div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min((proteinaProm/150)*100,100)}%"></div></div>
+        <div class="sub">Objetivo: 170g</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min((proteinaProm/170)*100,100)}%"></div></div>
       </div>
       <div class="card">
         <div class="label">Agua Promedio</div>
@@ -867,7 +867,8 @@ function renderNutricion(){
 
     // --- SCORE DEL DIA (3 criterios) ---
     let pts=0;
-    const cProt = totalProt >= 150; if(cProt) pts++;
+    const metaProt = fecha >= '2026-07-09' ? 170 : 150;
+    const cProt = totalProt >= metaProt; if(cProt) pts++;
     const cCal = totalCal>0 && totalCal <= techo; if(cCal) pts++;
     const cEj = hizoEjercicio; if(cEj) pts++;
     let sc = pts>=3?'ok':(pts===2?'ambar':'rojo');
@@ -948,11 +949,31 @@ function renderGuia(){
     <div class="section-title">Guía Fija — Reglas del Reto</div>
 
     <div class="guia-card">
+      <div class="guia-h">📌 Cambio 9 jul — Proteína 150g → 170g</div>
+      <ul class="guia-ul">
+        <li>A partir del 9 jul: objetivo <b>170g proteína/día</b> (antes 150g), para ultra-definir en los 50 días finales</li>
+        <li><b>Sin subir calorías:</b> los ~80 kcal extra de proteína se compensan bajando carbo (menos batata/tortilla). Mismo techo (1,800 gym / 1,600 descanso)</li>
+        <li>Meta sigue siendo 0.9%/semana de peso → 217 lb día 60</li>
+      </ul>
+    </div>
+
+    <div class="guia-card">
+      <div class="guia-h">🥗 Comida libre (volumen sin calorías)</div>
+      <ul class="guia-ul">
+        <li><b>Sí, come sin culpa:</b> ensalada verde, lechuga, tomate, pepino, repollo, espinaca — casi cero calorías, te llenan</li>
+        <li><b>Picante siempre que quieras</b> — 0 calorías, ayuda saciedad y leve termogénesis</li>
+        <li>Limón, vinagre, ajo, especias, mostaza — aderezos libres sin grasa</li>
+        <li><b>Tus bases:</b> huevos/pollo (proteína), batata/tortilla de maíz (carbo, en porción controlada)</li>
+        <li>Para bajar calorías sin pasar hambre: más volumen de vegetales, menos carbo denso, proteína magra (atún en agua, pechuga, claras)</li>
+      </ul>
+    </div>
+
+    <div class="guia-card">
       <div class="guia-h">🔥 Límite calórico (por mi peso 230lb, 5x/sem + cardio)</div>
       <ul class="guia-ul">
         <li>Días de gym: <b>1,800 kcal</b></li>
         <li>Días de descanso: <b>1,600 kcal</b></li>
-        <li>Proteína: <b>150g objetivo</b>, techo útil <b>230g</b></li>
+        <li>Proteína: <b>170g objetivo</b> (subido desde 150g el 9 jul, para ultra-definir), techo útil <b>230g</b></li>
         <li>Déficit óptimo: <b>500–700 kcal/día</b> (perder grasa sin canibalizar músculo)</li>
       </ul>
     </div>
