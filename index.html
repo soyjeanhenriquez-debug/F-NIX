@@ -165,6 +165,21 @@
   .ritmo-msg{margin-top:10px;font-size:0.82rem;font-weight:600;padding:8px;border-radius:8px;text-align:center;}
   .ritmo-msg.ok{background:rgba(62,207,122,0.12);color:var(--green);}
   .ritmo-msg.off{background:rgba(255,82,82,0.12);color:var(--red);}
+  .check-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;}
+  .check-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-weight:800;font-size:0.95rem;}
+  .check-score{font-size:0.78rem;padding:3px 10px;border-radius:8px;}
+  .check-score.ok{background:rgba(62,207,122,0.18);color:var(--green);}
+  .check-score.ambar{background:rgba(255,180,0,0.18);color:#ffb400;}
+  .check-score.rojo{background:rgba(255,82,82,0.18);color:var(--red);}
+  .check-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+  .check-item:last-child{border-bottom:none;}
+  .check-box{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:800;flex-shrink:0;}
+  .check-box.on{background:var(--green);border-color:var(--green);color:#000;}
+  .check-ic{font-size:1rem;}
+  .check-txt{flex:1;font-size:0.88rem;}
+  .check-item.done .check-txt{color:var(--sub);}
+  .check-auto{font-size:0.68rem;color:var(--sub);background:#0a0a0a;padding:2px 7px;border-radius:5px;}
+  .check-tap{font-size:0.68rem;color:var(--orange);background:var(--orange-dim);padding:2px 7px;border-radius:5px;}
   .lista-dia-head{font-weight:800;font-size:1.05rem;margin:6px 0 12px;color:var(--orange);}
   .dia-descanso{background:rgba(62,207,122,0.1);color:var(--green);padding:12px;border-radius:10px;margin-bottom:12px;font-size:0.88rem;line-height:1.4;}
   .lde{background:#0a0a0a;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
@@ -590,6 +605,67 @@ async function toggleHipo(){
 }
 
 // tarjeta de ritmo objetivo: donde deberia estar hoy vs peso real
+// checklist diario de 7 habitos — auto (calorias/proteina/cardio) + manual (entreno/sueno/pasos/suplementos)
+function checklistDiario(){
+  const hoy = todayStr();
+  const h = state.habitos.find(x=>x.fecha===hoy) || {};
+  // datos del dia para los automaticos
+  const comidasHoy = state.comidas.filter(c=>c.fecha===hoy);
+  const calHoy = comidasHoy.reduce((s,c)=>s+(Number(c.calorias)||0),0);
+  const protHoy = comidasHoy.reduce((s,c)=>s+(Number(c.proteina)||0),0);
+  const ejerHoy = state.ejercicios.filter(e=>e.fecha===hoy);
+  const esGym = ejerHoy.some(e=>renfitInfo(e.ejercicio));
+  const techo = esGym ? 1800 : 1600;
+  // cardio: hay registro de cardio hoy con >15min (buscamos en notas "min")
+  const cardioHoy = ejerHoy.find(e=>esCardio(e.ejercicio));
+  // AUTO checks
+  const cCal = calHoy > 0 && calHoy <= techo && calHoy >= 1500;
+  const cProt = protHoy >= 170;
+  const cCardio = !!cardioHoy; // registro de cardio = hecho (zona 2 >15min)
+  // MANUAL checks
+  const cEntreno = !!h.entreno;
+  const cSueno = !!h.sueno;
+  const cPasos = !!h.pasos;
+  const cSupl = !!h.suplementos;
+
+  const items = [
+    {k:'cal', auto:true, on:cCal, txt:`Calorías ${fmt(calHoy,0)}/${techo}`, ic:'🔥'},
+    {k:'prot', auto:true, on:cProt, txt:`Proteína ${fmt(protHoy,0)}/170g`, ic:'🍗'},
+    {k:'entreno', auto:false, on:cEntreno, txt:'Fuerza con intensidad', ic:'💪'},
+    {k:'sueno', auto:false, on:cSueno, txt:'Dormir 7.5-8h', ic:'😴'},
+    {k:'pasos', auto:false, on:cPasos, txt:'8,000-10,000 pasos', ic:'👟'},
+    {k:'cardio', auto:true, on:cCardio, txt:'Cardio zona 2 (>15min)', ic:'🏃'},
+    {k:'supl', auto:false, on:cSupl, txt:'Creatina + suplementos', ic:'💊'},
+  ];
+  const logrados = items.filter(i=>i.on).length;
+  let veredicto = logrados>=6?'DÍA POSITIVO':(logrados>=4?'DÍA REGULAR':'DÍA FLOJO');
+  let vcls = logrados>=6?'ok':(logrados>=4?'ambar':'rojo');
+
+  let html = `<div class="check-card">
+    <div class="check-head"><span>✅ Hitos de hoy</span><span class="check-score ${vcls}">${logrados}/7 · ${veredicto}</span></div>`;
+  items.forEach(i=>{
+    const clickable = !i.auto;
+    html += `<div class="check-item ${i.on?'done':''}" ${clickable?`onclick="toggleHabito('${i.k}')" style="cursor:pointer"`:''}>
+      <span class="check-box ${i.on?'on':''}">${i.on?'✓':''}</span>
+      <span class="check-ic">${i.ic}</span>
+      <span class="check-txt">${i.txt}</span>
+      ${i.auto?'<span class="check-auto">auto</span>':'<span class="check-tap">tocar</span>'}
+    </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+async function toggleHabito(campo){
+  const map = {entreno:'entreno', sueno:'sueno', pasos:'pasos', supl:'suplementos'};
+  const col = map[campo];
+  const hoy = todayStr();
+  const h = state.habitos.find(x=>x.fecha===hoy) || {};
+  const nuevo = !h[col];
+  const {error} = await sb.from('fenix_habitos').upsert({fecha:hoy, [col]:nuevo}, {onConflict:'fecha'});
+  if(error){ showToast('Error: '+error.message); return; }
+  await loadAll(); renderDashboard();
+}
+
 function ritmoObjetivo(){
   const START_PESO = 232;
   const START_FECHA = new Date('2026-07-07T00:00:00'); // inicio del tracking de ritmo
@@ -679,6 +755,7 @@ function renderDashboard(){
     ${fotoLunesBanner()}
     ${headerRecomendaciones()}
     ${ritmoObjetivo()}
+    ${checklistDiario()}
     ${aguaTracker()}
     ${hipopresivosWidget()}
     <div class="section-title">Resumen — Peso en libras</div>
