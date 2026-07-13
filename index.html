@@ -189,6 +189,18 @@
   .lde-meta{font-size:0.78rem;color:var(--sub);margin:5px 0 8px;}
   .lde-inputs{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;}
   .lde-inputs input{padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.95rem;width:100%;}
+  .lde-top{display:flex;justify-content:space-between;align-items:center;}
+  .lde-arrow{color:var(--sub);transition:transform 0.2s;}
+  .lde.collapsed .lde-arrow{transform:rotate(-90deg);}
+  .lde.collapsed .sets-wrap{display:none;}
+  .sets-wrap{margin-top:10px;}
+  .set-header{display:grid;grid-template-columns:28px 1fr 1fr 28px;gap:8px;font-size:0.68rem;color:var(--sub);text-transform:uppercase;padding:0 2px 4px;}
+  .set-row{display:grid;grid-template-columns:28px 1fr 1fr 28px;gap:8px;align-items:center;margin-bottom:6px;}
+  .set-num{color:var(--sub);font-weight:700;font-size:0.85rem;text-align:center;}
+  .set-row input{padding:9px;background:#0a0a0a;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.92rem;width:100%;text-align:center;}
+  .set-check{text-align:center;color:var(--sub);font-size:0.9rem;}
+  .set-actions{display:flex;gap:8px;margin-top:10px;}
+  .set-add{flex:1;padding:10px;background:#0a0a0a;border:1px dashed var(--orange);color:var(--orange);border-radius:9px;font-weight:700;cursor:pointer;font-size:0.88rem;}
   .lde-save{padding:10px 16px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;}
 </style>
 </head>
@@ -1162,43 +1174,97 @@ function renderListaDia(){
   let html = `<div class="lista-dia-head">${nombreDia}</div>`;
   ejs.forEach(ej => {
     const nombreCap = ej.nombre.replace(/\b\w/g,c=>c.toUpperCase());
-    // ultimo peso + sugerido
     const hist = state.ejercicios.filter(e=>renfitInfo(e.ejercicio)&&renfitInfo(e.ejercicio).o===ej.o&&renfitInfo(e.ejercicio).d===ej.d&&e.peso).sort((a,b)=>b.fecha.localeCompare(a.fecha));
     const ult = hist.length?hist[0].peso:null;
     const sug = ult?Math.round(ult*1.05*2)/2:null;
     const hecho = yaHoy.has(ej.o+'-'+ej.d);
-    html += `<div class="lde ${hecho?'done':''}" data-o="${ej.o}" data-d="${ej.d}" data-nombre="${nombreCap}" data-series="${ej.series}">
-      <div class="lde-top">
+    const nSets = parseInt(ej.series)||3;
+    const repsObj = parseInt(ej.reps)||10;
+
+    let setsHtml = '';
+    for(let s=1; s<=nSets; s++){
+      setsHtml += `<div class="set-row" data-set="${s}">
+        <span class="set-num">${s}</span>
+        <input type="number" class="set-peso" step="0.5" placeholder="${sug||'lb'}">
+        <input type="number" class="set-reps" value="${repsObj}">
+        <span class="set-check">○</span>
+      </div>`;
+    }
+
+    html += `<div class="lde ${hecho?'done':''}" data-o="${ej.o}" data-d="${ej.d}" data-nombre="${nombreCap}">
+      <div class="lde-top" onclick="toggleExpand(this)" style="cursor:pointer">
         <span class="lde-name"><span class="ex-num">#${ej.o}</span>${nombreCap} ${hecho?'<span class="lde-check">✓</span>':''}</span>
+        <span class="lde-arrow">▾</span>
       </div>
       <div class="lde-meta">${ej.series}×${ej.reps} obj · ⏱${descansoRenfit(ej.nombre)}${ult?` · últ: ${fmt(ult)}lb`:''}${sug?` · <b style="color:var(--orange)">meta: ${sug}lb</b>`:' · calibrar'}</div>
-      <div class="lde-inputs">
-        <input type="number" class="lde-reps" placeholder="reps" value="${parseInt(ej.reps)||''}">
-        <input type="number" class="lde-peso" step="0.5" placeholder="${sug||'peso'} lb">
-        <button class="lde-save" onclick="saveEjLista(this)">Guardar</button>
+      <div class="sets-wrap">
+        <div class="set-header"><span></span><span>LB</span><span>REPS</span><span></span></div>
+        ${setsHtml}
+        <div class="set-actions">
+          <button class="set-add" onclick="addSet(this)">+ Serie</button>
+          <button class="lde-save" onclick="saveEjLista(this)">Guardar todas</button>
+        </div>
       </div>
     </div>`;
   });
   cont.innerHTML = html;
 }
 
+function toggleExpand(topEl){
+  topEl.closest('.lde').classList.toggle('collapsed');
+}
+
+function addSet(btn){
+  const wrap = btn.closest('.sets-wrap');
+  const rows = wrap.querySelectorAll('.set-row');
+  const n = rows.length + 1;
+  const last = rows[rows.length-1];
+  const lastReps = last.querySelector('.set-reps').value;
+  const lastPeso = last.querySelector('.set-peso').value;
+  const div = document.createElement('div');
+  div.className = 'set-row';
+  div.dataset.set = n;
+  div.innerHTML = `<span class="set-num">${n}</span>
+    <input type="number" class="set-peso" step="0.5" value="${lastPeso}">
+    <input type="number" class="set-reps" value="${lastReps}">
+    <span class="set-check">○</span>`;
+  btn.parentElement.insertAdjacentElement('beforebegin', div);
+}
+
 async function saveEjLista(btn){
   const row = btn.closest('.lde');
-  const reps = parseInt(row.querySelector('.lde-reps').value);
-  const peso = parseFloat(row.querySelector('.lde-peso').value);
-  if(!reps || !peso){ showToast('Falta reps o peso'); return; }
+  const fecha = document.getElementById('ej-fecha').value;
+  const nombre = row.dataset.nombre;
+  const setRows = row.querySelectorAll('.set-row');
+  const sets = [];
+  setRows.forEach(sr => {
+    const peso = parseFloat(sr.querySelector('.set-peso').value);
+    const reps = parseInt(sr.querySelector('.set-reps').value);
+    if(peso && reps) sets.push({peso, reps});
+  });
+  if(!sets.length){ showToast('Completa al menos una serie'); return; }
+
+  // agrupar series iguales (mismo peso+reps) en un solo registro tipo "4x10x50lb"
+  // si varian, se guardan como registro unico con el peso/reps mas frecuente + nota del detalle
+  const pesoModa = sets[0].peso, repsModa = sets[0].reps;
+  const todasIguales = sets.every(s=>s.peso===pesoModa && s.reps===repsModa);
+  let notaDetalle = null;
+  if(!todasIguales){
+    notaDetalle = sets.map((s,i)=>`S${i+1}:${s.reps}x${s.peso}lb`).join(' ');
+  }
   const data = {
-    fecha: document.getElementById('ej-fecha').value,
-    ejercicio: row.dataset.nombre,
-    series: parseInt(row.dataset.series),
-    reps, peso, notas: null
+    fecha, ejercicio: nombre,
+    series: sets.length,
+    reps: todasIguales ? repsModa : sets[sets.length-1].reps,
+    peso: todasIguales ? pesoModa : sets[sets.length-1].peso,
+    notas: notaDetalle
   };
   const {error} = await sb.from('fenix_ejercicios').insert(data);
   if(error){ showToast('Error: '+error.message); return; }
   await loadAll();
   row.classList.add('done');
-  row.querySelector('.lde-name').insertAdjacentHTML('beforeend',' <span class="lde-check">✓</span>');
-  showToast(`${data.ejercicio} guardado ✓`);
+  setRows.forEach(sr=>sr.querySelector('.set-check').textContent='✓');
+  showToast(`${nombre} guardado ✓ (${sets.length} series)`);
 }
 
 async function saveLibre(){
