@@ -131,6 +131,7 @@
   .score-detail{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;}
   .chk{font-size:0.78rem;font-weight:600;padding:2px 8px;border-radius:6px;background:#0a0a0a;}
   .chk.y{color:var(--green);}
+  .chk.m{color:#ffb400;}
   .chk.n{color:var(--red);}
   .faltan{background:rgba(255,180,0,0.12);color:#ffb400;font-size:0.82rem;font-weight:600;padding:8px 10px;border-radius:8px;margin-bottom:8px;}
   .com-faltan{font-size:0.85rem;color:var(--sub);margin-bottom:10px;min-height:1rem;}
@@ -1014,19 +1015,31 @@ function renderNutricion(){
     const techo = esGym ? 1800 : 1600;
     const hizoEjercicio = esGym || diasConCardio.has(fecha) || diasConNota.has(fecha);
 
-    // --- SCORE DEL DIA (3 criterios) ---
-    let pts=0;
+    // --- SCORE DEL DIA (rangos escalonados, no todo-o-nada) ---
     const metaProt = fecha >= '2026-07-09' ? 170 : 150;
-    const cProt = totalProt >= metaProt; if(cProt) pts++;
-    const cCal = totalCal>0 && totalCal <= techo; if(cCal) pts++;
-    const cEj = hizoEjercicio; if(cEj) pts++;
-    let sc = pts>=3?'ok':(pts===2?'ambar':'rojo');
-    let scTxt = pts>=3?'DÍA BUENO':(pts===2?'MÁS O MENOS':'DÍA MALO');
+    // proteina: verde >=meta, ambar >=meta-20 (ej 150-169), rojo <meta-20
+    let protEstado = totalProt>=metaProt ? 'y' : (totalProt>=metaProt-20 ? 'm' : 'n');
+    // calorias: verde dentro de techo (hasta 5% bajo tambien ok), ambar 5-15% sobre, rojo mas de 15% sobre o muy bajo
+    let calEstado = 'n';
+    if(totalCal>0){
+      const pctSobre = (totalCal-techo)/techo;
+      if(pctSobre<=0.03) calEstado='y';
+      else if(pctSobre<=0.15) calEstado='m';
+      else calEstado='n';
+      if(totalCal < techo*0.7) calEstado='m'; // muy bajo tambien es solo "regular", no verde
+    }
+    const cEj = hizoEjercicio;
+    // puntaje: y=1, m=0.5, n=0
+    const pesoEstado = e => e==='y'?1:(e==='m'?0.5:0);
+    const pts = pesoEstado(protEstado) + pesoEstado(calEstado) + (cEj?1:0);
+    let sc = pts>=2.5?'ok':(pts>=1.5?'ambar':'rojo');
+    let scTxt = pts>=2.5?'DÍA BUENO':(pts>=1.5?'MÁS O MENOS':'DÍA MALO');
 
     // --- checklist de comidas faltantes ---
     const momentosHechos = new Set(items.map(i=>i.momento.toLowerCase()));
     const faltan = ['desayuno','almuerzo','cena'].filter(m=>!momentosHechos.has(m) && !(m==='almuerzo'&&momentosHechos.has('comida')));
 
+    const chkIcon = e => e==='y'?'✓':(e==='m'?'~':'✗');
     html += `<div class="entry score-${sc}">
       <div class="entry-top">
         <div class="entry-date">${fecha} <span class="daytype">${esGym?'GYM':(hizoEjercicio?'ACTIVO':'SIN EJERCICIO')}</span></div>
@@ -1034,8 +1047,8 @@ function renderNutricion(){
       </div>
       <div class="score-detail">
         <span class="chk ${cEj?'y':'n'}">${cEj?'✓':'✗'} Ejercicio</span>
-        <span class="chk ${cProt?'y':'n'}">${cProt?'✓':'✗'} Proteína ${fmt(totalProt,0)}g</span>
-        <span class="chk ${cCal?'y':'n'}">${cCal?'✓':'✗'} ${fmt(totalCal,0)}/${techo} kcal</span>
+        <span class="chk ${protEstado}">${chkIcon(protEstado)} Proteína ${fmt(totalProt,0)}g</span>
+        <span class="chk ${calEstado}">${chkIcon(calEstado)} ${fmt(totalCal,0)}/${techo} kcal</span>
       </div>`;
     if(faltan.length){
       html += `<div class="faltan">⚠️ Falta registrar: ${faltan.join(', ')}</div>`;
