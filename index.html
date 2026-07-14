@@ -134,6 +134,11 @@
   .chk.n{color:var(--red);}
   .faltan{background:rgba(255,180,0,0.12);color:#ffb400;font-size:0.82rem;font-weight:600;padding:8px 10px;border-radius:8px;margin-bottom:8px;}
   .com-faltan{font-size:0.85rem;color:var(--sub);margin-bottom:10px;min-height:1rem;}
+  .com-frecuentes{margin-bottom:12px;}
+  .frec-label{font-size:0.78rem;color:var(--sub);margin-bottom:6px;font-weight:600;}
+  .frec-chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .frec-chip{background:#0a0a0a;border:1px solid var(--orange-dim);color:var(--text);font-size:0.82rem;padding:6px 11px;border-radius:16px;cursor:pointer;}
+  .frec-chip b{color:var(--orange);}
   .pill-falta{display:inline-block;background:var(--orange-dim);color:var(--orange);padding:3px 10px;border-radius:12px;font-weight:700;cursor:pointer;margin:2px;}
   .reco-header{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
   .reco-title{font-weight:800;font-size:0.95rem;margin-bottom:8px;}
@@ -238,6 +243,7 @@
 
     <div class="mform" id="form-com" style="display:none">
       <div id="com-faltan" class="com-faltan"></div>
+      <div id="com-frecuentes" class="com-frecuentes"></div>
       <label>Fecha</label><input type="date" id="com-fecha">
       <label>Momento</label>
       <select id="com-momento">
@@ -412,6 +418,60 @@ function parseComida(texto){
   return res;
 }
 function esCardio(nombre){ const n=normEj(nombre); return n.includes('cardio')||n.includes('caminadora')||n.includes('caminata')||n.includes('boxeo')||n.includes('bicicleta')||n.includes('eliptica')||n.includes('trot'); }
+
+// ---- PLATOS FRECUENTES (aprendidos del historial de comidas) ----
+// agrupa comidas similares por nombre base (sin numeros/gramos), calcula macros por gramo de referencia
+function normPlato(texto){
+  return texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[\d.]+\s*(g|ml|l|kg|lb)\b/g,'') // quita cantidades
+    .replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+}
+function platosFrecuentes(){
+  const grupos = {};
+  state.comidas.forEach(c => {
+    if(!c.comida || !c.calorias) return;
+    const key = normPlato(c.comida);
+    if(!key || key.length<4) return;
+    // gramos de referencia: primer numero+g del texto original
+    const mG = c.comida.match(/(\d+)\s*g/i);
+    const gramosRef = mG ? parseInt(mG[1]) : null;
+    if(!grupos[key]) grupos[key] = {nombre:c.comida, count:0, muestras:[]};
+    grupos[key].count++;
+    grupos[key].muestras.push({
+      cal:Number(c.calorias)||0, prot:Number(c.proteina)||0,
+      carb:Number(c.carbos)||0, gra:Number(c.grasas)||0,
+      gramosRef, nombreOriginal:c.comida
+    });
+  });
+  // top platos por frecuencia, con macros por gramo (promedio de muestras que sí tienen gramosRef)
+  return Object.values(grupos)
+    .filter(g=>g.count>=2) // solo platos repetidos 2+
+    .map(g=>{
+      const conGramos = g.muestras.filter(m=>m.gramosRef);
+      let porGramo = null;
+      if(conGramos.length){
+        const avgCal = conGramos.reduce((s,m)=>s+m.cal/m.gramosRef,0)/conGramos.length;
+        const avgProt = conGramos.reduce((s,m)=>s+m.prot/m.gramosRef,0)/conGramos.length;
+        const avgCarb = conGramos.reduce((s,m)=>s+m.carb/m.gramosRef,0)/conGramos.length;
+        const avgGra = conGramos.reduce((s,m)=>s+m.gra/m.gramosRef,0)/conGramos.length;
+        porGramo = {cal:avgCal, prot:avgProt, carb:avgCarb, gra:avgGra};
+      }
+      const ultima = g.muestras[g.muestras.length-1];
+      return {
+        nombreBase: key_display(g.nombre),
+        count: g.count,
+        porGramo,
+        gramosDefault: ultima.gramosRef || 100,
+        macrosFijos: {cal:ultima.cal, prot:ultima.prot, carb:ultima.carb, gra:ultima.gra}
+      };
+    })
+    .sort((a,b)=>b.count-a.count)
+    .slice(0,12);
+}
+function key_display(nombreOriginal){
+  // limpia el nombre para mostrar (quita numeros de gramos especificos)
+  return nombreOriginal.replace(/\d+\s*g\b/gi,'').replace(/\s+/g,' ').trim();
+}
 
 
 let state = { dias: [], ejercicios: [], comidas: [], medidas: [], habitos: [] };
@@ -1142,6 +1202,43 @@ function openModal(){
   ['ej-fecha','com-fecha','dia-fecha'].forEach(id => { if(!document.getElementById(id).value) document.getElementById(id).value = todayStr(); });
   renderListaDia();
   actualizarFaltanHoy();
+  renderPlatosFrecuentes();
+}
+
+// renderiza chips de platos que comes seguido
+function renderPlatosFrecuentes(){
+  const cont = document.getElementById('com-frecuentes');
+  const platos = platosFrecuentes();
+  if(!platos.length){ cont.innerHTML=''; return; }
+  let html = `<div class="frec-label">Comes seguido:</div><div class="frec-chips">`;
+  platos.forEach((p,i) => {
+    html += `<span class="frec-chip" onclick='seleccionarPlato(${i})'>${p.nombreBase} <b>${p.gramosDefault}g</b></span>`;
+  });
+  html += `</div>`;
+  window._platosFrecCache = platos; // cache para seleccionarPlato
+  cont.innerHTML = html;
+}
+
+function seleccionarPlato(i){
+  const p = window._platosFrecCache[i];
+  if(p.porGramo){
+    // editable: mete el texto con gramos, el usuario puede tocar Calcular con otro gramaje si cambia el numero
+    document.getElementById('com-comida').value = `${p.nombreBase.trim()} ${p.gramosDefault}g`;
+  } else {
+    document.getElementById('com-comida').value = p.nombreBase.trim();
+    document.getElementById('com-cal').value = Math.round(p.macrosFijos.cal);
+    document.getElementById('com-prot').value = Math.round(p.macrosFijos.prot);
+    document.getElementById('com-carb').value = Math.round(p.macrosFijos.carb);
+    document.getElementById('com-gra').value = Math.round(p.macrosFijos.gra);
+    showToast('Plato cargado — ajusta gramos si cambió');
+    return;
+  }
+  // autollenar macros con el gramaje default usando porGramo
+  document.getElementById('com-cal').value = Math.round(p.porGramo.cal * p.gramosDefault);
+  document.getElementById('com-prot').value = Math.round(p.porGramo.prot * p.gramosDefault);
+  document.getElementById('com-carb').value = Math.round(p.porGramo.carb * p.gramosDefault);
+  document.getElementById('com-gra').value = Math.round(p.porGramo.gra * p.gramosDefault);
+  showToast(`${p.nombreBase.trim()} cargado — cambia el número de gramos y toca Calcular si comiste otra cantidad`);
 }
 
 // mapea fecha -> dia de reto segun dia de semana
@@ -1322,6 +1419,7 @@ document.querySelectorAll('.mtab').forEach(t => {
     document.getElementById('form-ej').style.display = t.dataset.mtab==='ej'?'block':'none';
     document.getElementById('form-com').style.display = t.dataset.mtab==='com'?'block':'none';
     document.getElementById('form-dia').style.display = t.dataset.mtab==='dia'?'block':'none';
+    if(t.dataset.mtab==='com'){ renderPlatosFrecuentes(); actualizarFaltanHoy(); }
   });
 });
 
