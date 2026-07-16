@@ -741,17 +741,19 @@ async function toggleHabito(campo){
 
 function ritmoObjetivo(){
   const START_PESO = 232;
-  const START_FECHA = new Date('2026-07-07T00:00:00'); // inicio del tracking de ritmo
+  const RETO_START_R = new Date('2026-06-30T00:00:00'); // Día 1 oficial del reto (lunes)
   const hoy = new Date();
-  const semanas = Math.max(0,(hoy - START_FECHA)/(7*86400000));
+  const diasDesdeInicio = Math.floor((hoy - RETO_START_R)/86400000) + 1; // dia 1,2,3...
+  const semanas = Math.max(0, (diasDesdeInicio-1)/7); // fraccion de semanas transcurridas, para el "deberias ir" continuo
   const pesoIdeal = START_PESO * Math.pow(1-RITMO_SEMANAL, semanas);
   // peso actual real
   const diasP = state.dias.filter(d=>d.peso!==null).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const pesoReal = diasP.length ? diasP[diasP.length-1].peso : START_PESO;
   const diff = pesoReal - pesoIdeal;
   const enRitmo = diff <= 0.5;
-  const semanaActual = Math.floor(semanas)+1;
-  const objSemana = START_PESO * Math.pow(1-RITMO_SEMANAL, Math.ceil(semanas));
+  // semana natural: dias 1-7 = semana 1, 8-14 = semana 2, 15-21 = semana 3...
+  const semanaActual = Math.max(1, Math.ceil(diasDesdeInicio/7));
+  const objSemana = START_PESO * Math.pow(1-RITMO_SEMANAL, semanaActual);
   return `<div class="ritmo-card">
     <div class="ritmo-top">
       <span class="ritmo-title">🎯 Meta: ${META_LB} lb (día 60)</span>
