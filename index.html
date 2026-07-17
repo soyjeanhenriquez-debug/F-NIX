@@ -692,7 +692,7 @@ function checklistDiario(){
   // cardio: hay registro de cardio hoy con >15min (buscamos en notas "min")
   const cardioHoy = ejerHoy.find(e=>esCardio(e.ejercicio));
   // AUTO checks
-  const cCal = calHoy > 0 && calHoy <= techo && calHoy >= 1500;
+  const cCal = calHoy > 0 && calHoy <= techo;
   const cProt = protHoy >= 170;
   const cCardio = !!cardioHoy; // registro de cardio = hecho (zona 2 >15min)
   // MANUAL checks
