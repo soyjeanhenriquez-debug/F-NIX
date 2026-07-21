@@ -317,6 +317,7 @@ const RENFIT = {
   'curls maquina':{d:2,o:5,g:'Biceps',reps:'12-15',series:3},
   'curls biceps maquina':{d:2,o:5,g:'Biceps',reps:'12-15',series:3},
   'curls polea soga':{d:2,o:6,g:'Biceps',reps:'12-15',series:3},
+  'front pulldown':{d:2,o:7,g:'Espalda-Biceps',reps:'10-12',series:3},
   // DIA 3 - Pierna Completa
   'sentadilla smith':{d:3,o:1,g:'Pierna',reps:'8-10',series:4},
   'sentadilla maquina smith':{d:3,o:1,g:'Pierna',reps:'8-10',series:4},
@@ -1112,6 +1113,16 @@ const renderers = { dashboard: renderDashboard, entrenamientos: renderEntrenamie
 function renderGuia(){
   const html = `
     <div class="section-title">Guía Fija — Reglas del Reto</div>
+
+    <div class="guia-card">
+      <div class="guia-h">📌 Cambio 21 jul — Front Pulldown agregado a Día 2</div>
+      <ul class="guia-ul">
+        <li>Nuevo ejercicio #7 fijo del Día 2 (Espalda + Bíceps): <b>Front Pulldown</b></li>
+        <li>Compuesto que combina dorsal + bíceps — complementa el trabajo de jalones y curl de polea del día</li>
+        <li>Baseline: <b>90lb × 3×12</b> (10 en la última serie por fatiga, normal como cierre de sesión)</li>
+        <li>Objetivo: 10-12 reps, progresión +5% cuando salga limpio</li>
+      </ul>
+    </div>
 
     <div class="guia-card">
       <div class="guia-h">📌 Cambio 9 jul — Proteína 150g → 170g</div>
