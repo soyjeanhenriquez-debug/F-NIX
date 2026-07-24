@@ -364,6 +364,20 @@ const DIA3_EXTRA = [
   {nombre:'curl femoral sentado', o:3, g:'Isquios', reps:'12-15', series:4},
   {nombre:'elevaciones talones sentado', o:5, g:'Pantorrillas', reps:'8-12', series:5},
 ];
+// FIX 2: variantes de nombre para el MISMO ejercicio fisico registradas con texto
+// distinto segun el dia (ej: "Extensiones Barra" vs "Extensiones Barra Triceps").
+// El match estricto por renfitInfo().d fallaba porque el nombre con "Triceps" esta
+// indexado bajo Dia 1. Esto agrupa variantes para que el historial se reconozca
+// sin importar cual nombre exacto se uso al registrar.
+const EQUIVALENCIAS = [
+  ['extensiones barra', 'extensiones barra triceps'],
+  ['extensiones soga', 'extensiones soga triceps'],
+];
+function enMismoGrupo(nombreA, nombreB){
+  const nA=normEj(nombreA), nB=normEj(nombreB);
+  if(nA===nB) return true;
+  return EQUIVALENCIAS.some(grupo => grupo.includes(nA) && grupo.includes(nB));
+}
 function normEj(nombre){
   return nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 }
@@ -592,6 +606,7 @@ function abrirDiaHoy(dow){
         // ejercicios ambiguos (mismo nombre en Dia3 y Dia5): usar el dia de semana real del registro
         const esAmbiguo = DIA3_EXTRA.some(x=>x.o===ej.o) && ej.d===3;
         if(esAmbiguo) return normEj(e.ejercicio)===normEj(ej.nombre) && diaRetoDeFecha(e.fecha)===3;
+        if(enMismoGrupo(e.ejercicio, ej.nombre)) return true;
         return info && info.o===ej.o && info.d===ej.d;
       })
       .sort((a,b)=>b.fecha.localeCompare(a.fecha));
@@ -1320,6 +1335,7 @@ function renderListaDia(){
       if(!e.peso) return false;
       const esAmbiguo = DIA3_EXTRA.some(x=>x.o===ej.o) && ej.d===3;
       if(esAmbiguo) return normEj(e.ejercicio)===normEj(ej.nombre) && diaRetoDeFecha(e.fecha)===3;
+      if(enMismoGrupo(e.ejercicio, ej.nombre)) return true;
       return info && info.o===ej.o && info.d===ej.d;
     }).sort((a,b)=>b.fecha.localeCompare(a.fecha));
     const ult = hist.length?hist[0].peso:null;
