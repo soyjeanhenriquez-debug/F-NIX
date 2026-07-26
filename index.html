@@ -482,6 +482,7 @@ function ultimoPesoDe(ej, fechaRef){
 
 // ============ MOTOR DE PROGRESION INTELIGENTE ============
 // Decide SUBE / MANTEN / BAJA segun reps logradas vs objetivo + RIR reportado
+// y ajusta el salto de peso a los INCREMENTOS REALES del equipo del gym.
 function rangoReps(repsStr){
   const s = String(repsStr||'');
   const nums = s.match(/\d+/g);
@@ -490,6 +491,35 @@ function rangoReps(repsStr){
   const n = parseInt(nums[0]);
   return {min:n, max:n};
 }
+// incremento minimo real segun tipo de equipo (en lb)
+function incrementoDe(nombreEj){
+  const n = normEj(nombreEj);
+  if(n.includes('mancuerna')) return 5;              // rack sube de 5 en 5 por mancuerna
+  if(n.includes('soga')||n.includes('polea')||n.includes('cable')) return 5;
+  if(n.includes('barra')||n.includes('smith')) return 5;   // 2.5 lb por lado
+  if(n.includes('prensa')||n.includes('leg press')) return 10; // discos grandes
+  if(n.includes('talones')) return 10;               // suelen ser stacks pesados
+  if(n.includes('maquina')||n.includes('pulldown')||n.includes('jalon')||n.includes('press')||n.includes('curl')||n.includes('fly')||n.includes('pec deck')||n.includes('thrust')||n.includes('abduc')||n.includes('adduc')||n.includes('extension')) return 10; // stack tipico
+  return 5;
+}
+// calcula el proximo peso real alcanzable
+function siguientePeso(pesoActual, factor, nombreEj){
+  const inc = incrementoDe(nombreEj);
+  const ideal = pesoActual * factor;
+  let saltos = Math.round((ideal - pesoActual) / inc);
+  if(saltos < 1) saltos = 1;                          // minimo un incremento
+  const nuevo = pesoActual + saltos * inc;
+  const pctReal = ((nuevo - pesoActual) / pesoActual) * 100;
+  return {nuevo, inc, pctReal};
+}
+function bajarPeso(pesoActual, nombreEj){
+  const inc = incrementoDe(nombreEj);
+  let saltos = Math.max(1, Math.round((pesoActual*0.08)/inc));
+  const nuevo = Math.max(inc, pesoActual - saltos*inc);
+  return {nuevo, inc};
+}
+const SALTO_MAX_PCT = 12; // si el incremento minimo supera esto, mejor subir reps
+
 function decisionProgresion(ej, ultimoReg){
   if(!ultimoReg || !ultimoReg.peso){
     return {accion:'nuevo', txt:'Primera vez — calibra con un peso que puedas controlar', cls:'nuevo', sug:null};
@@ -498,38 +528,44 @@ function decisionProgresion(ej, ultimoReg){
   const repsHechas = ultimoReg.reps || 0;
   const rir = (ultimoReg.rir===null || ultimoReg.rir===undefined) ? null : Number(ultimoReg.rir);
   const p = Number(ultimoReg.peso);
+  const nom = ej.nombre;
+
+  // helper: propone subida real o progresion doble si el salto es muy grande
+  const proponerSubida = (factor, motivo) => {
+    const {nuevo, inc, pctReal} = siguientePeso(p, factor, nom);
+    if(pctReal > SALTO_MAX_PCT){
+      return {accion:'reps', cls:'manten', sug:p,
+        txt:`${motivo} — pero el salto mínimo aquí es +${inc} lb (${pctReal.toFixed(0)}%, demasiado). Mantén ${p} lb y sube reps hasta ${max+2}`};
+    }
+    return {accion:'sube', cls:'sube', sug:nuevo,
+      txt:`${motivo}. Sube a ${nuevo} lb (+${inc} lb${pctReal?', '+pctReal.toFixed(0)+'%':''})`};
+  };
 
   // sin RIR registrado: decision solo por reps (modo compatible con historial viejo)
   if(rir===null){
-    if(repsHechas >= max){
-      const sug = Math.round(p*1.05*2)/2;
-      return {accion:'sube', txt:`Completaste el rango (${repsHechas} reps). Sube a ${sug} lb`, cls:'sube', sug};
-    }
+    if(repsHechas >= max) return proponerSubida(1.05, `Completaste el rango (${repsHechas} reps)`);
     if(repsHechas < min){
-      const sug = Math.round(p*0.92*2)/2;
-      return {accion:'baja', txt:`No llegaste al mínimo (${repsHechas}/${min}). Baja a ${sug} lb y consolida forma`, cls:'baja', sug};
+      const {nuevo, inc} = bajarPeso(p, nom);
+      return {accion:'baja', cls:'baja', sug:nuevo, txt:`No llegaste al mínimo (${repsHechas}/${min}). Baja a ${nuevo} lb (−${inc}) y consolida forma`};
     }
-    return {accion:'manten', txt:`En rango (${repsHechas} reps). Mantén ${p} lb hasta llegar a ${max}`, cls:'manten', sug:p};
+    return {accion:'manten', cls:'manten', sug:p, txt:`En rango (${repsHechas} reps). Mantén ${p} lb hasta llegar a ${max}`};
   }
 
   // con RIR: decision fina
   if(repsHechas >= max && rir >= 2){
-    const inc = rir >= 3 ? 1.075 : 1.05; // si sobraron 3+ reps, salto mayor
-    const sug = Math.round(p*inc*2)/2;
-    return {accion:'sube', txt:`${repsHechas} reps con RIR ${rir} — te sobró tanque. Sube a ${sug} lb`, cls:'sube', sug};
+    return proponerSubida(rir>=3?1.075:1.05, `${repsHechas} reps con RIR ${rir} — te sobró tanque`);
   }
   if(repsHechas >= max && rir <= 1){
-    return {accion:'manten', txt:`${repsHechas} reps pero RIR ${rir} (casi al fallo). Consolida en ${p} lb una sesión más`, cls:'manten', sug:p};
+    return {accion:'manten', cls:'manten', sug:p, txt:`${repsHechas} reps pero RIR ${rir} (casi al fallo). Consolida en ${p} lb una sesión más`};
   }
   if(repsHechas < min){
-    const sug = Math.round(p*0.92*2)/2;
-    return {accion:'baja', txt:`Solo ${repsHechas}/${min} reps. Baja a ${sug} lb y recupera técnica`, cls:'baja', sug};
+    const {nuevo, inc} = bajarPeso(p, nom);
+    return {accion:'baja', cls:'baja', sug:nuevo, txt:`Solo ${repsHechas}/${min} reps. Baja a ${nuevo} lb (−${inc}) y recupera técnica`};
   }
   if(rir >= 3){
-    const sug = Math.round(p*1.05*2)/2;
-    return {accion:'sube', txt:`RIR ${rir} — el peso está flojo aunque no cerraste rango. Sube a ${sug} lb`, cls:'sube', sug};
+    return proponerSubida(1.05, `RIR ${rir} — el peso está flojo aunque no cerraste rango`);
   }
-  return {accion:'manten', txt:`${repsHechas} reps, RIR ${rir}. Mantén ${p} lb y busca llegar a ${max}`, cls:'manten', sug:p};
+  return {accion:'manten', cls:'manten', sug:p, txt:`${repsHechas} reps, RIR ${rir}. Mantén ${p} lb y busca llegar a ${max}`};
 }
 function normEj(nombre){
   return nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
@@ -1603,7 +1639,7 @@ function renderListaDia(){
         <span class="lde-arrow">▾</span>
       </div>
       <div class="lde-meta">${ej.series}×${ej.reps} obj · ⏱${ej.desc || descansoRenfit(ej.nombre)}${ult?` · últ: ${fmt(ult)}lb`:''}</div>
-      <div class="prog-banner ${prog.cls}">${prog.accion==='sube'?'▲':prog.accion==='baja'?'▼':prog.accion==='nuevo'?'●':'='} ${prog.txt}</div>
+      <div class="prog-banner ${prog.cls}">${prog.accion==='sube'?'▲':prog.accion==='baja'?'▼':prog.accion==='nuevo'?'●':prog.accion==='reps'?'↻':'='} ${prog.txt}</div>
       <div class="sets-wrap">
         <div class="set-header"><span></span><span>LB</span><span>REPS</span><span></span></div>
         ${setsHtml}
