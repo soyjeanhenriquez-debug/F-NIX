@@ -89,6 +89,7 @@
   .proto-head{font-weight:800;font-size:1rem;margin-bottom:6px;}
   .proto-line{font-size:0.86rem;color:var(--sub);margin-top:4px;line-height:1.35;}
   .proto-tap{float:right;font-size:0.78rem;color:var(--orange);font-weight:700;}
+  .mes-badge{display:inline-block;background:var(--orange);color:#fff;font-size:0.62rem;font-weight:800;padding:2px 6px;border-radius:5px;vertical-align:middle;letter-spacing:0.04em;}
   .core-extra{background:rgba(255,90,31,0.08);border-radius:10px;padding:10px 12px;margin:8px 0;}
   .core-extra-h{font-size:0.82rem;font-weight:700;color:var(--orange);margin-bottom:6px;}
   .core-extra-item{font-size:0.83rem;color:var(--sub);line-height:1.45;margin-top:3px;}
@@ -379,6 +380,83 @@ function enMismoGrupo(nombreA, nombreB){
   if(nA===nB) return true;
   return EQUIVALENCIAS.some(grupo => grupo.includes(nA) && grupo.includes(nB));
 }
+
+// ================= MES 2 RENFIT (desde 27 jul 2026) =================
+// Split nuevo: D1 Pecho+Biceps | D2 Tren Inferior | D3 Tren Superior (Espalda+Triceps)
+// D4 Tren Inferior | D5 Tren Superior (Hombros+Brazos)
+// 'hist' = nombres del Mes 1 que cuentan como historial de ese ejercicio (para el ultimo peso)
+const MES2_START = '2026-07-27';
+const MES2 = [
+  // ---- DIA 1: Pecho + Biceps + Hombro ----
+  {d:1,o:1,n:'Press Plano con Mancuernas',g:'Pecho',reps:'8-10',series:4,desc:'90-120s',hist:[]},
+  {d:1,o:2,n:'Fly en Maquina',g:'Pecho',reps:'12',series:3,desc:'60-90s',hist:['fly maquina']},
+  {d:1,o:3,n:'Press Inclinado en Maquina Smith',g:'Pecho',reps:'15',series:3,desc:'90s',hist:['prensa inclinado maquina','press inclinado maquina']},
+  {d:1,o:4,n:'Curls de Biceps en Maquina',g:'Biceps',reps:'12',series:3,desc:'60s',hist:['curls maquina','curls maquina biceps']},
+  {d:1,o:5,n:'Curls Biceps Mancuernas Agarre Supino',g:'Biceps',reps:'12',series:3,desc:'60s',hist:['curls mancuernas agarre neutro']},
+  {d:1,o:6,n:'Elevaciones Laterales con Mancuernas',g:'Hombros',reps:'15',series:3,desc:'60-90s',hist:['elevaciones laterales mancuernas']},
+  // ---- DIA 2: Tren Inferior ----
+  {d:2,o:1,n:'Sentadilla en Maquina Smith',g:'Pierna',reps:'6-8',series:3,desc:'90-120s',hist:['sentadilla smith','sentadilla maquina smith']},
+  {d:2,o:2,n:'Leg Press',g:'Pierna',reps:'10-12',series:4,desc:'90s',hist:['prensa de piernas','prensa piernas']},
+  {d:2,o:3,n:'Extension de Cadera en Maquina',g:'Gluteos',reps:'8',series:3,desc:'60-90s',hist:['extension de cadera maquina','extension cadera maquina']},
+  {d:2,o:4,n:'Curls de Femoral Acostado',g:'Isquios',reps:'12',series:3,desc:'60-90s',hist:['curl femoral acostado']},
+  {d:2,o:5,n:'Abducciones en Maquina',g:'Abductores',reps:'15',series:3,desc:'45-60s',hist:['abductores']},
+  {d:2,o:6,n:'Elevaciones de Talones en Maquina',g:'Pantorrillas',reps:'15',series:4,desc:'45-60s',hist:['elevaciones talones de pie','elevaciones talones de pie maquina']},
+  // ---- DIA 3: Tren Superior (Espalda + Triceps) ----
+  {d:3,o:1,n:'Jalon al Pecho Agarre Supino',g:'Espalda',reps:'10',series:4,desc:'60-90s',hist:['jalon al pecho supino maquina','jalon al pecho supino']},
+  {d:3,o:2,n:'Jalon en Polea Baja Unilateral',g:'Espalda',reps:'8',series:4,desc:'60s',hist:[]},
+  {d:3,o:3,n:'Jalon Cerrado Agarre Neutro',g:'Espalda',reps:'10-12',series:3,desc:'60s',hist:['jalon cerrado neutro maquina','jalon cerrado agarre neutro maquina']},
+  {d:3,o:4,n:'Extensiones de Codo con Soga',g:'Triceps',reps:'12',series:3,desc:'60s',hist:['extensiones soga','extensiones soga triceps']},
+  {d:3,o:5,n:'Extensiones de Codo Tras Nuca Mancuernas',g:'Triceps',reps:'12',series:3,desc:'60s',hist:[]},
+  {d:3,o:6,n:'Apertura para Hombro Posterior',g:'Hombro Post.',reps:'12',series:3,desc:'45s',hist:['reverse pec deck']},
+  // ---- DIA 4: Tren Inferior ----
+  {d:4,o:1,n:'Hip Thrust en Maquina',g:'Gluteos',reps:'8-12',series:4,desc:'60-90s',hist:['hip thrust maquina']},
+  {d:4,o:2,n:'Sentadillas Bulgaras en Banco',g:'Gluteos',reps:'6 x pierna',series:3,desc:'90s',hist:[]},
+  {d:4,o:3,n:'Curls de Femoral Sentado',g:'Isquios',reps:'12-15',series:3,desc:'60-90s',hist:['curl femoral sentado']},
+  {d:4,o:4,n:'Extension de Cadera en Polea',g:'Gluteos',reps:'15',series:3,desc:'60s',hist:['extension cadera glute kickback']},
+  {d:4,o:5,n:'Adducciones en Maquina',g:'Adductores',reps:'15',series:3,desc:'45s',hist:[]},
+  {d:4,o:6,n:'Elevaciones de Talones en Maquina Sentada',g:'Pantorrillas',reps:'15',series:4,desc:'45s',hist:['elevaciones talones sentado','elevaciones de talones sentado']},
+  // ---- DIA 5: Tren Superior (Hombros + Biceps + Triceps) ----
+  {d:5,o:1,n:'Press Militar en Maquina',g:'Hombros',reps:'5-7',series:4,desc:'60-90s',hist:['prensa militar maquina','press militar maquina']},
+  {d:5,o:2,n:'Jalon para Hombro Posterior en Polea',g:'Hombro Post.',reps:'12',series:3,desc:'45s',hist:['jalon hombro posterior polea']},
+  {d:5,o:3,n:'Elevaciones Laterales con Mancuernas',g:'Hombros',reps:'15',series:3,desc:'45-60s',hist:['elevaciones laterales mancuernas']},
+  {d:5,o:4,n:'Curls Biceps Concentrado Banco Inclinado',g:'Biceps',reps:'12',series:3,desc:'60s',hist:[]},
+  {d:5,o:5,n:'Curls de Biceps en Polea con Soga',g:'Biceps',reps:'12',series:4,desc:'60s',hist:['curls polea soga','curls biceps polea baja']},
+  {d:5,o:6,n:'Extensiones de Codo con Soga',g:'Triceps',reps:'12-15',series:3,desc:'60-90s',hist:['extensiones soga','extensiones soga triceps']},
+  {d:5,o:7,n:'Extensiones de Codo con Barra V',g:'Triceps',reps:'12',series:3,desc:'45s',hist:['extensiones barra','extensiones barra triceps']},
+];
+const NOMBRES_DIA_M2 = {1:'Día 1 — Pecho + Bíceps',2:'Día 2 — Tren Inferior',3:'Día 3 — Espalda + Tríceps',4:'Día 4 — Tren Inferior',5:'Día 5 — Hombros + Brazos'};
+const NOMBRES_DIA_M1 = {1:'Día 1 — Pecho + Tríceps',2:'Día 2 — Espalda + Bíceps',3:'Día 3 — Pierna Completa',4:'Día 4 — Brazos + Hombros',5:'Día 5 — Tren Inferior'};
+function esMes2(fecha){ return (fecha||todayStr()) >= MES2_START; }
+function nombreDiaDe(fecha, diaReto){ return (esMes2(fecha)?NOMBRES_DIA_M2:NOMBRES_DIA_M1)[diaReto]; }
+// lista de ejercicios del dia, unificada Mes1/Mes2
+function ejerciciosDelDia(diaReto, fecha){
+  if(esMes2(fecha)){
+    return MES2.filter(x=>x.d===diaReto).sort((a,b)=>a.o-b.o)
+      .map(x=>({nombre:x.n, o:x.o, d:x.d, g:x.g, reps:x.reps, series:x.series, desc:x.desc, hist:x.hist}));
+  }
+  const lista = Object.entries(RENFIT).filter(([k,v])=>v.d===diaReto)
+    .reduce((acc,[k,v])=>{ if(!acc.find(x=>x.o===v.o)) acc.push({nombre:k,...v}); return acc; },[]);
+  if(diaReto===3){ DIA3_EXTRA.forEach(ex=>{ if(!lista.find(x=>x.o===ex.o)) lista.push({...ex, d:3}); }); }
+  return lista.sort((a,b)=>a.o-b.o);
+}
+// busca el ultimo peso de un ejercicio, cruzando historial Mes1 <-> Mes2
+function ultimoPesoDe(ej, fechaRef){
+  const candidatos = state.ejercicios.filter(e=>{
+    if(!e.peso) return false;
+    const ne = normEj(e.ejercicio);
+    if(ne===normEj(ej.nombre)) return true;
+    if(ej.hist && ej.hist.some(h=>normEj(h)===ne)) return true;
+    if(enMismoGrupo(e.ejercicio, ej.nombre)) return true;
+    const info = renfitInfo(e.ejercicio);
+    if(!esMes2(fechaRef) && info && info.o===ej.o && info.d===ej.d){
+      const esAmbiguo = DIA3_EXTRA.some(x=>x.o===ej.o) && ej.d===3;
+      if(esAmbiguo) return diaRetoDeFecha(e.fecha)===3;
+      return true;
+    }
+    return false;
+  }).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  return candidatos.length ? candidatos[0] : null;
+}
 function normEj(nombre){
   return nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 }
@@ -557,22 +635,37 @@ function coreHoy(dow){
 
 function protocoloHoy(){
   const dow = new Date().getDay(); // 0=Do ... 6=Sa
-  const map = {
-    1:{t:'Día 1 — Pecho + Tríceps', cardio:'Caminadora inclinada / Elíptica 45-60min post-pesas', abs:true},
-    2:{t:'Día 2 — Espalda + Bíceps', cardio:'Elíptica / Bicicleta 45-60min post-pesas', abs:false},
-    3:{t:'Día 3 — Pierna Completa', cardio:'Bicicleta 30min (sin impacto — es día de pierna)', abs:false},
-    4:{t:'Descanso activo', cardio:'Caminata 30-60min suave (recuperación, no quema)', abs:true},
-    5:{t:'Día 4 — Brazos + Hombros', cardio:'Elíptica / Escaladora 45-60min post-pesas', abs:false},
-    6:{t:'Día 5 — Tren Inferior', cardio:'Bicicleta 30min (sin impacto)', abs:true},
-    0:{t:'Descanso activo', cardio:'Caminata / cuerda suave 30-60min (recuperación)', abs:false},
+  const hoy = todayStr();
+  const m2 = esMes2(hoy);
+  const cardioM1 = {
+    1:'Caminadora inclinada / Elíptica 45-60min post-pesas',
+    2:'Elíptica / Bicicleta 45-60min post-pesas',
+    3:'Bicicleta 30min (sin impacto — es día de pierna)',
+    4:'Caminata 30-60min suave (recuperación, no quema)',
+    5:'Elíptica / Escaladora 45-60min post-pesas',
+    6:'Bicicleta 30min (sin impacto)',
+    0:'Caminata / cuerda suave 30-60min (recuperación)',
   };
-  const p = map[dow];
+  // Mes 2: D2 y D5(sabado) son tren inferior -> cardio sin impacto
+  const cardioM2 = {
+    1:'Caminadora inclinada / Elíptica 45-60min post-pesas',
+    2:'Bicicleta 30min (sin impacto — es día de pierna)',
+    3:'Elíptica / Caminadora 45-60min post-pesas',
+    4:'Caminata 30-60min suave (recuperación, no quema)',
+    5:'Bicicleta 30min (sin impacto — es día de pierna)',
+    6:'Elíptica / Escaladora 45-60min post-pesas',
+    0:'Caminata / cuerda suave 30-60min (recuperación)',
+  };
+  const diaRetoDow = {1:1,2:2,3:3,5:4,6:5}[dow];
   const esDescanso = (dow===4||dow===0);
+  const titulo = esDescanso ? 'Descanso activo' : nombreDiaDe(hoy, diaRetoDow);
+  const cardio = (m2?cardioM2:cardioM1)[dow];
+  const abs = [1,4,6].includes(dow);
   return `<div class="protocolo ${esDescanso?'rest':''}" ${!esDescanso?'onclick="abrirDiaHoy('+dow+')" style="cursor:pointer"':''}>
-    <div class="proto-head">📋 Hoy — ${p.t} ${!esDescanso?'<span class="proto-tap">ver ejercicios ›</span>':''}</div>
+    <div class="proto-head">📋 Hoy — ${titulo}${m2?' <span class="mes-badge">M2</span>':''} ${!esDescanso?'<span class="proto-tap">ver ejercicios ›</span>':''}</div>
     ${coreHoy(dow)}
-    <div class="proto-line">🏃 ${p.cardio}</div>
-    ${p.abs?'<div class="proto-line">🎯 Core: ver bloque extra arriba</div>':''}
+    <div class="proto-line">🏃 ${cardio}</div>
+    ${abs?'<div class="proto-line">🎯 Core: ver bloque extra arriba</div>':''}
   </div>`;
 }
 
@@ -580,38 +673,18 @@ function protocoloHoy(){
 function abrirDiaHoy(dow){
   const diaReto = {1:1,2:2,3:3,5:4,6:5}[dow];
   if(!diaReto) return;
-  // ejercicios oficiales de ese dia, ordenados
-  const ejsDelDia = Object.entries(RENFIT)
-    .filter(([k,v])=>v.d===diaReto)
-    .reduce((acc,[k,v])=>{ // dedupe por orden (hay alias)
-      if(!acc.find(x=>x.o===v.o)) acc.push({nombre:k,...v});
-      return acc;
-    },[]);
-  if(diaReto===3){ DIA3_EXTRA.forEach(ex=>{ if(!ejsDelDia.find(x=>x.o===ex.o)) ejsDelDia.push({...ex, d:3}); }); }
-  ejsDelDia.sort((a,b)=>a.o-b.o);
-
-  const nombreBonito = {1:'Día 1 — Pecho + Tríceps',2:'Día 2 — Espalda + Bíceps',3:'Día 3 — Pierna Completa',4:'Día 4 — Brazos + Hombros',5:'Día 5 — Tren Inferior'}[diaReto];
+  const hoy = todayStr();
+  const ejsDelDia = ejerciciosDelDia(diaReto, hoy);
+  const nombreBonito = nombreDiaDe(hoy, diaReto);
 
   let html = `<div class="dia-panel">
     <div class="dia-panel-head">
-      <span>${nombreBonito}</span>
+      <span>${nombreBonito}${esMes2(hoy)?' <span class="mes-badge">MES 2</span>':''}</span>
       <button onclick="renderDashboard()" class="dia-close">✕</button>
     </div>`;
 
   ejsDelDia.forEach(ej => {
-    // ultimo peso registrado de este ejercicio (por cualquier alias)
-    const hist = state.ejercicios
-      .filter(e => {
-        const info = renfitInfo(e.ejercicio);
-        if(!e.peso) return false;
-        // ejercicios ambiguos (mismo nombre en Dia3 y Dia5): usar el dia de semana real del registro
-        const esAmbiguo = DIA3_EXTRA.some(x=>x.o===ej.o) && ej.d===3;
-        if(esAmbiguo) return normEj(e.ejercicio)===normEj(ej.nombre) && diaRetoDeFecha(e.fecha)===3;
-        if(enMismoGrupo(e.ejercicio, ej.nombre)) return true;
-        return info && info.o===ej.o && info.d===ej.d;
-      })
-      .sort((a,b)=>b.fecha.localeCompare(a.fecha));
-    const ultimo = hist.length ? hist[0] : null;
+    const ultimo = ultimoPesoDe(ej, hoy);
     const sug = ultimo ? Math.round(ultimo.peso * 1.05 * 2)/2 : null;
     const mejora = ultimo ? '+5%' : '—';
 
@@ -623,7 +696,7 @@ function abrirDiaHoy(dow){
       </div>
       <div class="dia-ex-specs">
         <span class="spec">${ej.series}×${ej.reps} reps</span>
-        <span class="spec desc">⏱ ${descansoRenfit(ej.nombre)}</span>
+        <span class="spec desc">⏱ ${ej.desc || descansoRenfit(ej.nombre)}</span>
         ${ultimo ? `<span class="spec">último: ${fmt(ultimo.peso)} lb</span>` : ''}
         ${sug ? `<span class="spec sug">objetivo hoy: ${sug} lb</span>` : `<span class="spec new">primera vez — calibrar</span>`}
         ${ultimo ? `<span class="spec mejora">${mejora}</span>` : ''}
@@ -1147,6 +1220,18 @@ function renderGuia(){
     <div class="section-title">Guía Fija — Reglas del Reto</div>
 
     <div class="guia-card">
+      <div class="guia-h">🔥 Cambio 27 jul — ARRANCA MES 2 RENFIT</div>
+      <ul class="guia-ul">
+        <li><b>Split nuevo:</b> D1 Pecho+Bíceps · D2 Tren Inferior · D3 Espalda+Tríceps · D4 Tren Inferior · D5 Hombros+Brazos</li>
+        <li><b>Principio del mes:</b> si cumples las reps indicadas, sube ~10% la carga. "No persigas números grandes, persigue sentir el músculo"</li>
+        <li><b>Desafío progresivo semanal:</b> cada semana eliges un reto extra (más reps, una serie más, o más carga)</li>
+        <li>Los ejercicios que se repiten del Mes 1 mantienen tu peso de referencia automático</li>
+        <li><b>Nuevos:</b> Press Plano Mancuernas, Jalón Polea Baja Unilateral, Extensiones Tras Nuca, Sentadillas Búlgaras, Extensión Cadera en Polea, Adducciones, Curls Concentrado</li>
+        <li>Nutrición y cardio: <b>siguen las reglas del Mes 1</b> (hidratación 2.5L mín, sin frituras, comida libre cada 15 días)</li>
+      </ul>
+    </div>
+
+    <div class="guia-card">
       <div class="guia-h">📌 Cambio 25 jul — Abductores agregado a Día 5</div>
       <ul class="guia-ul">
         <li>Nuevo ejercicio #7 fijo del Día 5 (Tren Inferior): <b>Abductores</b></li>
@@ -1327,30 +1412,19 @@ function renderListaDia(){
       <button class="save-btn" onclick="saveLibre()">Guardar actividad</button>`;
     return;
   }
-  // ejercicios oficiales del dia, dedup por orden
-  const ejs = Object.entries(RENFIT).filter(([k,v])=>v.d===diaReto)
-    .reduce((acc,[k,v])=>{ if(!acc.find(x=>x.o===v.o)) acc.push({nombre:k,...v}); return acc; },[]);
-  if(diaReto===3){ DIA3_EXTRA.forEach(ex=>{ if(!ejs.find(x=>x.o===ex.o)) ejs.push({...ex, d:3}); }); }
-  ejs.sort((a,b)=>a.o-b.o);
-  const nombreDia = {1:'Día 1 — Pecho + Tríceps',2:'Día 2 — Espalda + Bíceps',3:'Día 3 — Pierna Completa',4:'Día 4 — Brazos + Hombros',5:'Día 5 — Tren Inferior'}[diaReto];
+  const ejs = ejerciciosDelDia(diaReto, fecha);
+  const nombreDia = nombreDiaDe(fecha, diaReto);
 
-  // ya registrados hoy (para marcar check)
-  const yaHoy = new Set(state.ejercicios.filter(e=>e.fecha===fecha && renfitInfo(e.ejercicio)).map(e=>renfitInfo(e.ejercicio).o+'-'+renfitInfo(e.ejercicio).d));
+  // ya registrados en esa fecha (para marcar check) - por nombre, funciona en Mes1 y Mes2
+  const registradosHoy = state.ejercicios.filter(e=>e.fecha===fecha);
 
-  let html = `<div class="lista-dia-head">${nombreDia}</div>`;
+  let html = `<div class="lista-dia-head">${nombreDia}${esMes2(fecha)?' <span class="mes-badge">MES 2</span>':''}</div>`;
   ejs.forEach(ej => {
     const nombreCap = ej.nombre.replace(/\b\w/g,c=>c.toUpperCase());
-    const hist = state.ejercicios.filter(e=>{
-      const info = renfitInfo(e.ejercicio);
-      if(!e.peso) return false;
-      const esAmbiguo = DIA3_EXTRA.some(x=>x.o===ej.o) && ej.d===3;
-      if(esAmbiguo) return normEj(e.ejercicio)===normEj(ej.nombre) && diaRetoDeFecha(e.fecha)===3;
-      if(enMismoGrupo(e.ejercicio, ej.nombre)) return true;
-      return info && info.o===ej.o && info.d===ej.d;
-    }).sort((a,b)=>b.fecha.localeCompare(a.fecha));
-    const ult = hist.length?hist[0].peso:null;
+    const ultimoReg = ultimoPesoDe(ej, fecha);
+    const ult = ultimoReg ? ultimoReg.peso : null;
     const sug = ult?Math.round(ult*1.05*2)/2:null;
-    const hecho = yaHoy.has(ej.o+'-'+ej.d);
+    const hecho = registradosHoy.some(e=>normEj(e.ejercicio)===normEj(ej.nombre));
     const nSets = parseInt(ej.series)||3;
     const repsObj = parseInt(ej.reps)||10;
 
@@ -1369,7 +1443,7 @@ function renderListaDia(){
         <span class="lde-name"><span class="ex-num">#${ej.o}</span>${nombreCap} ${hecho?'<span class="lde-check">✓</span>':''}</span>
         <span class="lde-arrow">▾</span>
       </div>
-      <div class="lde-meta">${ej.series}×${ej.reps} obj · ⏱${descansoRenfit(ej.nombre)}${ult?` · últ: ${fmt(ult)}lb`:''}${sug?` · <b style="color:var(--orange)">meta: ${sug}lb</b>`:' · calibrar'}</div>
+      <div class="lde-meta">${ej.series}×${ej.reps} obj · ⏱${ej.desc || descansoRenfit(ej.nombre)}${ult?` · últ: ${fmt(ult)}lb`:''}${sug?` · <b style="color:var(--orange)">meta: ${sug}lb</b>`:' · calibrar'}</div>
       <div class="sets-wrap">
         <div class="set-header"><span></span><span>LB</span><span>REPS</span><span></span></div>
         ${setsHtml}
