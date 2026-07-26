@@ -486,9 +486,26 @@ const MES2 = [
   {d:5,o:5,n:'Curls de Biceps en Polea con Soga',g:'Biceps',reps:'12',series:4,desc:'60s',hist:['curls polea soga','curls biceps polea baja']},
   {d:5,o:6,n:'Extensiones de Codo con Soga',g:'Triceps',reps:'12-15',series:3,desc:'60-90s',hist:['extensiones soga','extensiones soga triceps']},
   {d:5,o:7,n:'Extensiones de Codo con Barra V',g:'Triceps',reps:'12',series:3,desc:'45s',hist:['extensiones barra','extensiones barra triceps']},
+  // ---- DIA 6: Domingo - Activacion / Prehab (ligero, sin fatiga para el lunes) ----
+  {d:6,o:1,n:'Elevaciones Laterales en Polea',g:'Hombros',reps:'15-20',series:4,desc:'45-60s',hist:['elevaciones laterales polea','elevaciones laterales cable']},
+  {d:6,o:2,n:'Face Pull en Polea',g:'Hombro Post.',reps:'15-20',series:3,desc:'45-60s',hist:['face pull','pec deck invertido']},
+  {d:6,o:3,n:'Crunch en Polea',g:'Abdomen',reps:'15',series:3,desc:'45s',hist:['crunch polea','crunch cable']},
+  {d:6,o:4,n:'Elevaciones de Piernas',g:'Abdomen',reps:'12-15',series:3,desc:'45s',hist:['elevaciones piernas','leg raises']},
+  {d:6,o:5,n:'Elevacion de Gemelos Sentado',g:'Pantorrillas',reps:'15-20',series:4,desc:'45-60s',hist:['gemelos sentado','elevacion gemelos sentado']},
+  {d:6,o:6,n:'Maquina Abductora',g:'Abductores',reps:'15-20',series:3,desc:'45-60s',hist:['abductores maquina']},
+  {d:6,o:7,n:'Maquina Aductora',g:'Adductores',reps:'15-20',series:3,desc:'45-60s',hist:['aductores maquina','adductores maquina']},
+  {d:6,o:8,n:'Curl de Muñeca (opcional)',g:'Antebrazos',reps:'20',series:2,desc:'30-45s',hist:['curl muñeca']},
+  {d:6,o:9,n:'Extension de Muñeca (opcional)',g:'Antebrazos',reps:'20',series:2,desc:'30-45s',hist:['extension muñeca']},
 ];
-const NOMBRES_DIA_M2 = {1:'Día 1 — Pecho + Bíceps',2:'Día 2 — Tren Inferior',3:'Día 3 — Espalda + Tríceps',4:'Día 4 — Tren Inferior',5:'Día 5 — Hombros + Brazos'};
-const NOMBRES_DIA_M1 = {1:'Día 1 — Pecho + Tríceps',2:'Día 2 — Espalda + Bíceps',3:'Día 3 — Pierna Completa',4:'Día 4 — Brazos + Hombros',5:'Día 5 — Tren Inferior'};
+const NOMBRES_DIA_M2 = {1:'Día 1 — Pecho + Bíceps',2:'Día 2 — Tren Inferior',3:'Día 3 — Espalda + Tríceps',4:'Día 4 — Tren Inferior',5:'Día 5 — Hombros + Brazos',6:'Día 6 — Domingo (Activación)'};
+const NOMBRES_DIA_M1 = {1:'Día 1 — Pecho + Tríceps',2:'Día 2 — Espalda + Bíceps',3:'Día 3 — Pierna Completa',4:'Día 4 — Brazos + Hombros',5:'Día 5 — Tren Inferior',6:'Día 6 — Domingo (Activación)'};
+const EVITAR_DOMINGO = ['Sentadilla','Peso muerto','Hip thrust pesado','Press banca','Dominadas lastradas','Remo pesado','Press militar pesado'];
+function bannerEvitarDomingo(){
+  return `<div class="dia-cardio-note" style="border:1px solid var(--red);background:rgba(255,82,82,0.08);color:var(--red)">
+    🚫 Nada de esto hoy — no debe fatigar el sistema nervioso ni dejar agujetas para el lunes:<br>
+    ${EVITAR_DOMINGO.map(x=>`✗ ${x}`).join(' &nbsp; ')}
+  </div>`;
+}
 function esMes2(fecha){ return (fecha||todayStr()) >= MES2_START; }
 function nombreDiaDe(fecha, diaReto){ return (esMes2(fecha)?NOMBRES_DIA_M2:NOMBRES_DIA_M1)[diaReto]; }
 // lista de ejercicios del dia, unificada Mes1/Mes2
@@ -795,7 +812,7 @@ function protocoloHoy(){
     4:'Caminata 30-60min suave (recuperación, no quema)',
     5:'Elíptica / Escaladora 45-60min post-pesas',
     6:'Bicicleta 30min (sin impacto)',
-    0:'Caminata / cuerda suave 30-60min (recuperación)',
+    0:'Zona 2 20-30min (130-140 lpm) + 10,000 pasos hoy',
   };
   // Mes 2: D2 y D5(sabado) son tren inferior -> cardio sin impacto
   const cardioM2 = {
@@ -805,10 +822,10 @@ function protocoloHoy(){
     4:'Caminata 30-60min suave (recuperación, no quema)',
     5:'Bicicleta 30min (sin impacto — es día de pierna)',
     6:'Elíptica / Escaladora 45-60min post-pesas',
-    0:'Caminata / cuerda suave 30-60min (recuperación)',
+    0:'Zona 2 20-30min (130-140 lpm) + 10,000 pasos hoy',
   };
-  const diaRetoDow = {1:1,2:2,3:3,5:4,6:5}[dow];
-  const esDescanso = (dow===4||dow===0);
+  const diaRetoDow = {0:6,1:1,2:2,3:3,5:4,6:5}[dow];
+  const esDescanso = (dow===4);
   const titulo = esDescanso ? 'Descanso activo' : nombreDiaDe(hoy, diaRetoDow);
   const cardio = (m2?cardioM2:cardioM1)[dow];
   const abs = [1,4,6].includes(dow);
@@ -817,12 +834,13 @@ function protocoloHoy(){
     ${coreHoy(dow)}
     <div class="proto-line">🏃 ${cardio}</div>
     ${abs?'<div class="proto-line">🎯 Core: ver bloque extra arriba</div>':''}
+    ${dow===0?bannerEvitarDomingo():''}
   </div>`;
 }
 
 // abre panel con los ejercicios oficiales del dia de hoy
 function abrirDiaHoy(dow){
-  const diaReto = {1:1,2:2,3:3,5:4,6:5}[dow];
+  const diaReto = {0:6,1:1,2:2,3:3,5:4,6:5}[dow];
   if(!diaReto) return;
   const hoy = todayStr();
   const ejsDelDia = ejerciciosDelDia(diaReto, hoy);
@@ -855,8 +873,9 @@ function abrirDiaHoy(dow){
     </div>`;
   });
 
-  const retoADow = {1:1,2:2,3:3,4:5,5:6}; // diaReto -> dia semana
+  const retoADow = {1:1,2:2,3:3,4:5,5:6,6:0}; // diaReto -> dia semana
   html += coreHoy(retoADow[diaReto]);
+  if(diaReto===6) html += bannerEvitarDomingo();
   html += `<div class="dia-cardio-note">🏃 Recuerda: cardio al terminar las pesas (ver arriba en el dashboard)</div>`;
   html += `</div>`;
   document.getElementById('app').innerHTML = html;
@@ -1756,7 +1775,7 @@ function seleccionarPlato(i){
 // mapea fecha -> dia de reto segun dia de semana
 function diaRetoDeFecha(fechaStr){
   const d = new Date(fechaStr+'T12:00:00').getDay();
-  return {1:1,2:2,3:3,5:4,6:5}[d] || null;
+  return {0:6,1:1,2:2,3:3,5:4,6:5}[d] || null;
 }
 
 // lista fija de ejercicios del dia, en orden, con series precargadas
