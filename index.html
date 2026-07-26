@@ -974,9 +974,25 @@ function ritmoObjetivo(){
   const pesoIdeal = START_PESO * Math.pow(1-RITMO_SEMANAL, semanas);
   // peso actual real
   const diasP = state.dias.filter(d=>d.peso!==null).sort((a,b)=>a.fecha.localeCompare(b.fecha));
-  const pesoReal = diasP.length ? diasP[diasP.length-1].peso : START_PESO;
+  const pesoBascula = diasP.length ? diasP[diasP.length-1].peso : START_PESO;
+  // La bascula de un dia es ruido (agua, sal, glucogeno). Se decide con la media movil.
+  const fechaMenos = (n)=>{ const d=new Date(hoy.getTime()-n*86400000); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+  const promedio = (arr)=> arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+  const ventana = (desde, hasta)=> promedio(diasP.filter(d=>d.fecha>desde && d.fecha<=hasta).map(d=>d.peso));
+  const media7 = ventana(fechaMenos(7), fechaMenos(0)) ?? pesoBascula;
+  const media7prev = ventana(fechaMenos(14), fechaMenos(7));
+  // Ritmo real: media contra media. Positivo = bajando.
+  const ritmoReal = media7prev ? ((media7prev - media7)/media7prev)*100 : null;
+  const pesoReal = media7;
   const diff = pesoReal - pesoIdeal;
   const enRitmo = diff <= 0.5;
+  // Semaforo bidireccional: bajar demasiado rapido tambien es un fallo (masa magra).
+  let ritmoMsg = '', ritmoCls = '';
+  if(ritmoReal === null){ ritmoMsg = 'Ritmo real: faltan 14 días de pesaje para calcularlo'; ritmoCls='off'; }
+  else if(ritmoReal < 0.15){ ritmoMsg = `Ritmo real ${fmt(ritmoReal,2)}%/sem — estancado. Si sigue 2 semanas, baja 100 kcal/día`; ritmoCls='off'; }
+  else if(ritmoReal <= 1.05){ ritmoMsg = `Ritmo real ${fmt(ritmoReal,2)}%/sem — zona de máxima retención muscular`; ritmoCls='ok'; }
+  else if(ritmoReal <= 1.30){ ritmoMsg = `Ritmo real ${fmt(ritmoReal,2)}%/sem — al límite. Vigila fuerza y sueño, no aceleres más`; ritmoCls='off'; }
+  else { ritmoMsg = `⚠️ Ritmo real ${fmt(ritmoReal,2)}%/sem — demasiado rápido, estás quemando masa magra. Sube 100-150 kcal/día`; ritmoCls='off'; }
   // semana natural: dias 1-7 = semana 1, 8-14 = semana 2, 15-21 = semana 3...
   const semanaActual = Math.max(1, Math.ceil(diasDesdeInicio/7));
   const objSemana = START_PESO * Math.pow(1-RITMO_SEMANAL, semanaActual);
@@ -987,10 +1003,11 @@ function ritmoObjetivo(){
     </div>
     <div class="ritmo-row">
       <div class="ritmo-box"><div class="ritmo-lbl">Deberías ir</div><div class="ritmo-val">${fmt(pesoIdeal)} lb</div></div>
-      <div class="ritmo-box"><div class="ritmo-lbl">Vas</div><div class="ritmo-val" style="color:${enRitmo?'var(--green)':'var(--red)'}">${fmt(pesoReal)} lb</div></div>
+      <div class="ritmo-box"><div class="ritmo-lbl">Vas (media 7d)</div><div class="ritmo-val" style="color:${enRitmo?'var(--green)':'var(--red)'}">${fmt(pesoReal)} lb</div><div class="ritmo-lbl" style="opacity:.6">báscula hoy ${fmt(pesoBascula)}</div></div>
       <div class="ritmo-box"><div class="ritmo-lbl">Meta sem ${semanaActual}</div><div class="ritmo-val">${fmt(objSemana)} lb</div></div>
     </div>
     <div class="ritmo-msg ${enRitmo?'ok':'off'}">${enRitmo?'✓ En ritmo o adelantado':`⚠️ ${fmt(Math.abs(diff))} lb por encima del ritmo — aprieta déficit y agua`}</div>
+    <div class="ritmo-msg ${ritmoCls}" style="margin-top:6px">${ritmoMsg}</div>
   </div>`;
 }
 
@@ -1329,7 +1346,9 @@ function volumenSemanal(){
   state.ejercicios.filter(e=>e.fecha>=f7 && e.series && !esCardio(e.ejercicio)).forEach(e=>{
     const g = grupoDe(e.ejercicio);
     if(!g) return;
-    conteo[g] = (conteo[g]||0) + (Number(e.series)||0);
+    if(!conteo[g]) conteo[g] = {series:0, fechas:new Set()};
+    conteo[g].series += (Number(e.series)||0);
+    conteo[g].fechas.add(e.fecha);
   });
   return conteo;
 }
@@ -1338,20 +1357,23 @@ function renderPrioridadMuscular(){
   const filas = Object.entries(PRIORIDAD_MUSCULAR)
     .sort((a,b)=>b[1].estrellas-a[1].estrellas);
   let deficits = [];
+  let unaVez = [];
   let html = `<div class="section-title">Índice de Prioridad Muscular</div>
     <div class="prio-intro">Series completadas en los últimos 7 días vs rango objetivo según impacto estético.</div>`;
   filas.forEach(([grupo, cfg])=>{
-    const hechas = conteo[grupo] || 0;
+    const hechas = conteo[grupo] ? conteo[grupo].series : 0;
+    const frec = conteo[grupo] ? conteo[grupo].fechas.size : 0;
     const [minS, maxS] = cfg.series;
     let estado, cls;
     if(hechas < minS){ estado=`faltan ${minS-hechas}`; cls='bajo'; if(cfg.estrellas>=4) deficits.push({grupo, faltan:minS-hechas, estrellas:cfg.estrellas}); }
     else if(hechas > maxS){ estado='sobre rango'; cls='sobre'; }
     else { estado='en rango'; cls='ok'; }
+    if(frec===1 && cfg.estrellas>=4) unaVez.push(grupo);
     const pct = Math.min((hechas/maxS)*100, 100);
     html += `<div class="prio-row">
       <div class="prio-top">
         <span class="prio-name">${grupo} <span class="prio-stars">${'★'.repeat(cfg.estrellas)}${'☆'.repeat(5-cfg.estrellas)}</span></span>
-        <span class="prio-vol ${cls}">${hechas}/${minS}-${maxS} series · ${estado}</span>
+        <span class="prio-vol ${cls}">${hechas}/${minS}-${maxS} series · ${estado}${frec?` <span style="padding:1px 6px;border-radius:4px;font-size:.85em;background:${frec>=2?'rgba(0,200,120,.15)':'rgba(255,80,80,.18)'};color:${frec>=2?'var(--green)':'var(--red)'}">${frec}x/sem</span>`:''}</span>
       </div>
       <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${cls==='ok'?'var(--green)':cls==='bajo'?'var(--red)':'#ffb400'}"></div></div>
       <div class="prio-nota">${cfg.nota}</div>
@@ -1366,6 +1388,9 @@ function renderPrioridadMuscular(){
     html += `</div>`;
   } else {
     html += `<div class="prio-reco ok"><b>✓ Volumen equilibrado</b><br>Todos los grupos de alta prioridad están en rango esta semana.</div>`;
+  }
+  if(unaVez.length){
+    html += `<div class="prio-reco"><b>🔁 Frecuencia baja:</b><br>${unaVez.join(', ')} solo ${unaVez.length>1?'aparecen':'aparece'} 1 día esta semana. En déficit conviene repartir el mismo volumen en 2 sesiones — mismas series, mejor retención.</div>`;
   }
   return html;
 }
