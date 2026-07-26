@@ -211,11 +211,20 @@
   .prog-banner.manten{background:rgba(255,180,0,0.14);color:#ffb400;}
   .prog-banner.baja{background:rgba(255,82,82,0.14);color:var(--red);}
   .prog-banner.nuevo{background:rgba(255,90,31,0.12);color:var(--orange);}
-  .rir-wrap{display:flex;align-items:center;gap:8px;margin:10px 0 4px;flex-wrap:wrap;}
-  .rir-label{font-size:0.78rem;color:var(--sub);font-weight:600;}
-  .rir-btns{display:flex;gap:5px;}
-  .rir-btn{width:34px;height:34px;border-radius:8px;background:#0a0a0a;border:1px solid var(--border);color:var(--sub);font-weight:700;font-size:0.9rem;cursor:pointer;}
+  .rir-wrap{margin:12px 0 4px;}
+  .rir-label{font-size:0.78rem;color:var(--sub);font-weight:600;margin-bottom:7px;}
+  .rir-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
+  .rir-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:9px;background:#0a0a0a;border:1px solid var(--border);color:var(--sub);cursor:pointer;}
+  .rir-num{font-weight:800;font-size:0.95rem;line-height:1;}
+  .rir-word{font-size:0.6rem;line-height:1.1;text-align:center;opacity:0.85;}
   .rir-btn.on{background:var(--orange);border-color:var(--orange);color:#fff;}
+  .rir-btn.on .rir-word{opacity:1;}
+  .rir-feedback{display:none;font-size:0.76rem;line-height:1.4;padding:8px 10px;border-radius:8px;margin-top:7px;}
+  .rir-feedback.show{display:block;}
+  .rir-feedback.ideal{background:rgba(62,207,122,0.13);color:var(--green);}
+  .rir-feedback.alerta{background:rgba(255,82,82,0.13);color:var(--red);}
+  .rir-feedback.duro{background:rgba(255,180,0,0.13);color:#ffb400;}
+  .rir-feedback.facil{background:rgba(255,90,31,0.12);color:var(--orange);}
   .prio-intro{font-size:0.8rem;color:var(--sub);margin-bottom:12px;line-height:1.4;}
   .prio-row{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
   .prio-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:7px;}
@@ -1626,11 +1635,21 @@ function renderListaDia(){
       </div>`;
     }
 
+    const RIR_OPS = [
+      {v:0, l:'Al fallo', ic:'🔥'},
+      {v:1, l:'Muy duro', ic:''},
+      {v:2, l:'Ideal', ic:''},
+      {v:3, l:'Fácil', ic:''},
+      {v:4, l:'Muy fácil', ic:''},
+    ];
     const rirHtml = `<div class="rir-wrap">
-      <span class="rir-label">RIR última serie:</span>
+      <div class="rir-label">¿Cuántas reps te quedaban en la última serie?</div>
       <div class="rir-btns">
-        ${[0,1,2,3,4].map(v=>`<button type="button" class="rir-btn" data-rir="${v}" onclick="setRir(this)">${v}</button>`).join('')}
+        ${RIR_OPS.map(o=>`<button type="button" class="rir-btn" data-rir="${o.v}" onclick="setRir(this)">
+          <span class="rir-num">${o.ic||o.v}</span><span class="rir-word">${o.l}</span>
+        </button>`).join('')}
       </div>
+      <div class="rir-feedback"></div>
     </div>`;
 
     html += `<div class="lde ${hecho?'done':''}" data-o="${ej.o}" data-d="${ej.d}" data-nombre="${nombreCap}">
@@ -1675,11 +1694,22 @@ function addSet(btn){
   btn.parentElement.insertAdjacentElement('beforebegin', div);
 }
 
+const RIR_FEEDBACK = {
+  0: {t:'⚠️ Cuidado — no entrenes siempre al fallo. Resérvalo para la última serie de aislamiento, no para los básicos pesados.', cls:'alerta'},
+  1: {t:'Muy exigente. Válido en tus series finales, pero no en todas o acumulas fatiga sin más ganancia.', cls:'duro'},
+  2: {t:'✓ Perfecto. Mantuviste 2 repeticiones en reserva — es la zona ideal para progresar sin quemarte.', cls:'ideal'},
+  3: {t:'Cómodo. Buen margen de seguridad, pero si se repite es señal clara de que toca subir peso.', cls:'facil'},
+  4: {t:'Muy fácil. El peso está flojo para este rango — la próxima sesión sube carga.', cls:'facil'},
+};
 function setRir(btn){
   const wrap = btn.closest('.rir-wrap');
   wrap.querySelectorAll('.rir-btn').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  wrap.dataset.rir = btn.dataset.rir;
+  const v = btn.dataset.rir;
+  wrap.dataset.rir = v;
+  const fb = wrap.querySelector('.rir-feedback');
+  const info = RIR_FEEDBACK[v];
+  if(fb && info){ fb.className = 'rir-feedback show '+info.cls; fb.textContent = info.t; }
 }
 
 async function saveEjLista(btn){
