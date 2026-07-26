@@ -957,7 +957,7 @@ function checklistDiario(){
     {k:'supl', auto:false, on:cSupl, txt:'Creatina + suplementos', ic:'💊'},
   ];
   const logrados = items.filter(i=>i.on).length;
-  let veredicto = logrados>=6?'DÍA POSITIVO':(logrados>=4?'DÍA REGULAR':'DÍA FLOJO');
+  let veredicto = logrados>=6?'🔥 Día fuerte':(logrados>=4?'💪 Vas bien, aprieta más':'🎯 Aún puedes ganarlo');
   let vcls = logrados>=6?'ok':(logrados>=4?'ambar':'rojo');
 
   let html = `<div class="check-card">
@@ -1067,13 +1067,19 @@ function ritmoObjetivo(){
   const pesoReal = media7;
   const diff = pesoReal - pesoIdeal;
   const enRitmo = diff <= 0.5;
-  // Semaforo bidireccional: bajar demasiado rapido tambien es un fallo (masa magra).
+  // Ir rapido solo es un problema si de verdad se esta perdiendo masa magra (medido), no por el % solo.
+  const medOrd = state.medidas.filter(m=>m.masa_magra!=null).slice().sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const magraUlt = medOrd.length ? medOrd[medOrd.length-1].masa_magra : null;
+  const magraPrev = medOrd.length>1 ? medOrd[medOrd.length-2].masa_magra : null;
+  const deltaMagra = (magraUlt!=null && magraPrev!=null) ? (magraUlt-magraPrev) : null;
+  const perdiendoMusculo = deltaMagra!==null && deltaMagra < -0.3; // umbral de ruido de medicion
   let ritmoMsg = '', ritmoCls = '';
   if(ritmoReal === null){ ritmoMsg = 'Ritmo real: faltan 14 días de pesaje para calcularlo'; ritmoCls='off'; }
-  else if(ritmoReal < 0.15){ ritmoMsg = `Ritmo real ${fmt(ritmoReal,2)}%/sem — estancado. Si sigue 2 semanas, baja 100 kcal/día`; ritmoCls='off'; }
-  else if(ritmoReal <= 1.05){ ritmoMsg = `Ritmo real ${fmt(ritmoReal,2)}%/sem — zona de máxima retención muscular`; ritmoCls='ok'; }
-  else if(ritmoReal <= 1.30){ ritmoMsg = `Ritmo real ${fmt(ritmoReal,2)}%/sem — al límite. Vigila fuerza y sueño, no aceleres más`; ritmoCls='off'; }
-  else { ritmoMsg = `⚠️ Ritmo real ${fmt(ritmoReal,2)}%/sem — demasiado rápido, estás quemando masa magra. Sube 100-150 kcal/día`; ritmoCls='off'; }
+  else if(ritmoReal < 0.15){ ritmoMsg = `Ritmo real ${fmt(ritmoReal,2)}%/sem — aprieta un poco: si sigue así 2 semanas, baja 100 kcal/día`; ritmoCls='off'; }
+  else if(ritmoReal <= 1.30){ ritmoMsg = `🔥 Ritmo real ${fmt(ritmoReal,2)}%/sem — justo en la zona ideal`; ritmoCls='ok'; }
+  else if(perdiendoMusculo){ ritmoMsg = `⚠️ Ritmo real ${fmt(ritmoReal,2)}%/sem y tu masa magra bajó ${fmt(Math.abs(deltaMagra))} lb desde la última medición — ahí sí toca subir 100-150 kcal/día`; ritmoCls='off'; }
+  else if(deltaMagra!==null){ ritmoMsg = `🚀 Ritmo real ${fmt(ritmoReal,2)}%/sem y tu masa magra se mantiene — vas rápido sin pagarlo en músculo, ¡sigue así!`; ritmoCls='ok'; }
+  else { ritmoMsg = `🚀 Ritmo real ${fmt(ritmoReal,2)}%/sem — vas rápido. Toma medidas pronto para confirmar que no es músculo`; ritmoCls='off'; }
   // semana natural: dias 1-7 = semana 1, 8-14 = semana 2, 15-21 = semana 3...
   const semanaActual = Math.max(1, Math.ceil(diasDesdeInicio/7));
   const objSemana = START_PESO * Math.pow(1-RITMO_SEMANAL, semanaActual);
@@ -1359,7 +1365,7 @@ function renderNutricion(){
     const pesoEstado = e => e==='y'?1:(e==='m'?0.5:0);
     const pts = pesoEstado(protEstado) + pesoEstado(calEstado) + (cEj?1:0);
     let sc = pts>=2.5?'ok':(pts>=1.5?'ambar':'rojo');
-    let scTxt = pts>=2.5?'DÍA BUENO':(pts>=1.5?'MÁS O MENOS':'DÍA MALO');
+    let scTxt = pts>=2.5?'🔥 En racha':(pts>=1.5?'💪 Un ajuste y listo':'🎯 Momento de apretar');
 
     // --- checklist de comidas faltantes ---
     const momentosHechos = new Set(items.map(i=>i.momento.toLowerCase()));
@@ -1433,6 +1439,27 @@ function volumenSemanal(){
   });
   return conteo;
 }
+function iconMusculoSVG(grupo){
+  const P = {'Hombros':'hombros','Hombro Post.':'hombros','Espalda':'torso','Pecho':'torso',
+    'Biceps':'brazo','Triceps':'brazo','Gluteos':'gluteos','Pierna':'muslo','Isquios':'muslo',
+    'Abductores':'cadera','Adductores':'cadera','Pantorrillas':'pantorrilla'};
+  const parte = P[grupo] || 'torso';
+  const c = p => p===parte ? 'var(--orange)' : '#2a2523';
+  return `<svg viewBox="0 0 40 68" width="26" height="44" style="flex-shrink:0">
+    <circle cx="20" cy="7" r="6" fill="#2a2523"/>
+    <ellipse cx="10" cy="18" rx="5" ry="4.5" fill="${c('hombros')}"/>
+    <ellipse cx="30" cy="18" rx="5" ry="4.5" fill="${c('hombros')}"/>
+    <rect x="14" y="14" width="12" height="20" rx="4" fill="${c('torso')}"/>
+    <rect x="4" y="18" width="7" height="18" rx="3" fill="${c('brazo')}"/>
+    <rect x="29" y="18" width="7" height="18" rx="3" fill="${c('brazo')}"/>
+    <rect x="12" y="34" width="16" height="10" rx="4" fill="${c('cadera')}"/>
+    <rect x="12" y="40" width="16" height="8" rx="3" fill="${c('gluteos')}"/>
+    <rect x="13" y="46" width="6" height="14" rx="3" fill="${c('muslo')}"/>
+    <rect x="21" y="46" width="6" height="14" rx="3" fill="${c('muslo')}"/>
+    <rect x="13" y="59" width="6" height="9" rx="3" fill="${c('pantorrilla')}"/>
+    <rect x="21" y="59" width="6" height="9" rx="3" fill="${c('pantorrilla')}"/>
+  </svg>`;
+}
 function renderPrioridadMuscular(){
   const conteo = volumenSemanal();
   const filas = Object.entries(PRIORIDAD_MUSCULAR)
@@ -1453,7 +1480,7 @@ function renderPrioridadMuscular(){
     const pct = Math.min((hechas/maxS)*100, 100);
     html += `<div class="prio-row">
       <div class="prio-top">
-        <span class="prio-name">${grupo} <span class="prio-stars">${'★'.repeat(cfg.estrellas)}${'☆'.repeat(5-cfg.estrellas)}</span></span>
+        <span class="prio-name" style="display:flex;align-items:center;gap:8px">${iconMusculoSVG(grupo)}<span>${grupo} <span class="prio-stars">${'★'.repeat(cfg.estrellas)}${'☆'.repeat(5-cfg.estrellas)}</span></span></span>
         <span class="prio-vol ${cls}">${hechas}/${minS}-${maxS} series · ${estado}${frec?` <span style="padding:1px 6px;border-radius:4px;font-size:.85em;background:${frec>=2?'rgba(0,200,120,.15)':'rgba(255,80,80,.18)'};color:${frec>=2?'var(--green)':'var(--red)'}">${frec}x/sem</span>`:''}</span>
       </div>
       <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${cls==='ok'?'var(--green)':cls==='bajo'?'var(--red)':'#ffb400'}"></div></div>
