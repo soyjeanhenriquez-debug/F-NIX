@@ -206,6 +206,28 @@
   .set-num{color:var(--sub);font-weight:700;font-size:0.85rem;text-align:center;}
   .set-row input{padding:9px;background:#0a0a0a;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.92rem;width:100%;text-align:center;}
   .set-check{text-align:center;color:var(--sub);font-size:0.9rem;}
+  .prog-banner{font-size:0.8rem;font-weight:600;padding:8px 10px;border-radius:8px;margin:6px 0 8px;line-height:1.35;}
+  .prog-banner.sube{background:rgba(62,207,122,0.14);color:var(--green);}
+  .prog-banner.manten{background:rgba(255,180,0,0.14);color:#ffb400;}
+  .prog-banner.baja{background:rgba(255,82,82,0.14);color:var(--red);}
+  .prog-banner.nuevo{background:rgba(255,90,31,0.12);color:var(--orange);}
+  .rir-wrap{display:flex;align-items:center;gap:8px;margin:10px 0 4px;flex-wrap:wrap;}
+  .rir-label{font-size:0.78rem;color:var(--sub);font-weight:600;}
+  .rir-btns{display:flex;gap:5px;}
+  .rir-btn{width:34px;height:34px;border-radius:8px;background:#0a0a0a;border:1px solid var(--border);color:var(--sub);font-weight:700;font-size:0.9rem;cursor:pointer;}
+  .rir-btn.on{background:var(--orange);border-color:var(--orange);color:#fff;}
+  .prio-intro{font-size:0.8rem;color:var(--sub);margin-bottom:12px;line-height:1.4;}
+  .prio-row{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
+  .prio-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:7px;}
+  .prio-name{font-weight:700;font-size:0.92rem;}
+  .prio-stars{color:var(--orange);font-size:0.8rem;letter-spacing:-1px;}
+  .prio-vol{font-size:0.78rem;font-weight:700;white-space:nowrap;}
+  .prio-vol.ok{color:var(--green);}
+  .prio-vol.bajo{color:var(--red);}
+  .prio-vol.sobre{color:#ffb400;}
+  .prio-nota{font-size:0.74rem;color:var(--sub);margin-top:6px;line-height:1.35;}
+  .prio-reco{background:linear-gradient(135deg,rgba(255,90,31,0.14),rgba(255,90,31,0.04));border:1px solid var(--orange-dim);border-radius:12px;padding:14px;margin:12px 0 20px;font-size:0.85rem;line-height:1.5;}
+  .prio-reco.ok{background:rgba(62,207,122,0.1);border-color:rgba(62,207,122,0.3);}
   .set-actions{display:flex;gap:8px;margin-top:10px;}
   .set-add{flex:1;padding:10px;background:#0a0a0a;border:1px dashed var(--orange);color:var(--orange);border-radius:9px;font-weight:700;cursor:pointer;font-size:0.88rem;}
   .lde-save{padding:10px 16px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;}
@@ -318,7 +340,7 @@ const RENFIT = {
   'curls maquina':{d:2,o:5,g:'Biceps',reps:'12-15',series:3},
   'curls biceps maquina':{d:2,o:5,g:'Biceps',reps:'12-15',series:3},
   'curls polea soga':{d:2,o:6,g:'Biceps',reps:'12-15',series:3},
-  'front pulldown':{d:2,o:7,g:'Espalda-Biceps',reps:'10-12',series:3},
+  'front pulldown':{d:2,o:7,g:'Espalda',reps:'10-12',series:3},
   // DIA 3 - Pierna Completa
   'sentadilla smith':{d:3,o:1,g:'Pierna',reps:'8-10',series:4},
   'sentadilla maquina smith':{d:3,o:1,g:'Pierna',reps:'8-10',series:4},
@@ -456,6 +478,58 @@ function ultimoPesoDe(ej, fechaRef){
     return false;
   }).sort((a,b)=>b.fecha.localeCompare(a.fecha));
   return candidatos.length ? candidatos[0] : null;
+}
+
+// ============ MOTOR DE PROGRESION INTELIGENTE ============
+// Decide SUBE / MANTEN / BAJA segun reps logradas vs objetivo + RIR reportado
+function rangoReps(repsStr){
+  const s = String(repsStr||'');
+  const nums = s.match(/\d+/g);
+  if(!nums) return {min:8, max:12};
+  if(nums.length>=2) return {min:parseInt(nums[0]), max:parseInt(nums[1])};
+  const n = parseInt(nums[0]);
+  return {min:n, max:n};
+}
+function decisionProgresion(ej, ultimoReg){
+  if(!ultimoReg || !ultimoReg.peso){
+    return {accion:'nuevo', txt:'Primera vez — calibra con un peso que puedas controlar', cls:'nuevo', sug:null};
+  }
+  const {min, max} = rangoReps(ej.reps);
+  const repsHechas = ultimoReg.reps || 0;
+  const rir = (ultimoReg.rir===null || ultimoReg.rir===undefined) ? null : Number(ultimoReg.rir);
+  const p = Number(ultimoReg.peso);
+
+  // sin RIR registrado: decision solo por reps (modo compatible con historial viejo)
+  if(rir===null){
+    if(repsHechas >= max){
+      const sug = Math.round(p*1.05*2)/2;
+      return {accion:'sube', txt:`Completaste el rango (${repsHechas} reps). Sube a ${sug} lb`, cls:'sube', sug};
+    }
+    if(repsHechas < min){
+      const sug = Math.round(p*0.92*2)/2;
+      return {accion:'baja', txt:`No llegaste al mínimo (${repsHechas}/${min}). Baja a ${sug} lb y consolida forma`, cls:'baja', sug};
+    }
+    return {accion:'manten', txt:`En rango (${repsHechas} reps). Mantén ${p} lb hasta llegar a ${max}`, cls:'manten', sug:p};
+  }
+
+  // con RIR: decision fina
+  if(repsHechas >= max && rir >= 2){
+    const inc = rir >= 3 ? 1.075 : 1.05; // si sobraron 3+ reps, salto mayor
+    const sug = Math.round(p*inc*2)/2;
+    return {accion:'sube', txt:`${repsHechas} reps con RIR ${rir} — te sobró tanque. Sube a ${sug} lb`, cls:'sube', sug};
+  }
+  if(repsHechas >= max && rir <= 1){
+    return {accion:'manten', txt:`${repsHechas} reps pero RIR ${rir} (casi al fallo). Consolida en ${p} lb una sesión más`, cls:'manten', sug:p};
+  }
+  if(repsHechas < min){
+    const sug = Math.round(p*0.92*2)/2;
+    return {accion:'baja', txt:`Solo ${repsHechas}/${min} reps. Baja a ${sug} lb y recupera técnica`, cls:'baja', sug};
+  }
+  if(rir >= 3){
+    const sug = Math.round(p*1.05*2)/2;
+    return {accion:'sube', txt:`RIR ${rir} — el peso está flojo aunque no cerraste rango. Sube a ${sug} lb`, cls:'sube', sug};
+  }
+  return {accion:'manten', txt:`${repsHechas} reps, RIR ${rir}. Mantén ${p} lb y busca llegar a ${max}`, cls:'manten', sug:p};
 }
 function normEj(nombre){
   return nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
@@ -1176,8 +1250,84 @@ function renderNutricion(){
   document.getElementById('app').innerHTML = html || '<div class="loading">Sin comidas registradas</div>';
 }
 
+// ====== INDICE DE PRIORIDAD MUSCULAR + VOLUMEN SEMANAL ======
+// Prioridad por impacto estetico real para la foto del dia 60.
+// Editable: dime si quieres cambiar las estrellas de algun grupo.
+const PRIORIDAD_MUSCULAR = {
+  'Hombros':        {estrellas:5, series:[14,20], nota:'Deltoide lateral = ancho visual. El músculo de mayor retorno estético'},
+  'Espalda':        {estrellas:5, series:[14,20], nota:'Dorsales = efecto V, cintura se ve más pequeña por contraste'},
+  'Pecho':          {estrellas:5, series:[12,18], nota:'Pecho superior es el que más cambia la foto de frente'},
+  'Hombro Post.':   {estrellas:4, series:[6,10],  nota:'Postura y volumen 3D del hombro, muy descuidado en general'},
+  'Biceps':         {estrellas:4, series:[8,14],  nota:'Alto impacto visual por unidad de esfuerzo'},
+  'Triceps':        {estrellas:4, series:[8,14],  nota:'2/3 del volumen del brazo — más importante que el bíceps para grosor'},
+  'Gluteos':        {estrellas:3, series:[8,14],  nota:'Base de fuerza y silueta lateral'},
+  'Pierna':         {estrellas:3, series:[8,14],  nota:'Cuádriceps: proporción y salud metabólica'},
+  'Isquios':        {estrellas:3, series:[6,10],  nota:'Equilibrio con cuádriceps, protege rodilla'},
+  'Abductores':     {estrellas:2, series:[3,6],   nota:'Estabilidad de cadera, poco impacto visual'},
+  'Adductores':     {estrellas:2, series:[3,6],   nota:'Complemento del abductor'},
+  'Pantorrillas':   {estrellas:2, series:[6,12],  nota:'Bajo retorno estético relativo, muy genético'},
+};
+// mapea un nombre de ejercicio a su grupo muscular (busca en MES2 y luego en RENFIT)
+function grupoDe(nombreEj){
+  const n = normEj(nombreEj);
+  const m2 = MES2.find(x=>normEj(x.n)===n || (x.hist||[]).some(h=>normEj(h)===n));
+  if(m2) return m2.g;
+  const info = RENFIT[n];
+  if(info) return info.g;
+  return null;
+}
+function volumenSemanal(){
+  const hoy = new Date();
+  const hace7 = new Date(hoy.getTime() - 7*86400000);
+  const f7 = hace7.getFullYear()+'-'+String(hace7.getMonth()+1).padStart(2,'0')+'-'+String(hace7.getDate()).padStart(2,'0');
+  const conteo = {};
+  state.ejercicios.filter(e=>e.fecha>=f7 && e.series && !esCardio(e.ejercicio)).forEach(e=>{
+    const g = grupoDe(e.ejercicio);
+    if(!g) return;
+    conteo[g] = (conteo[g]||0) + (Number(e.series)||0);
+  });
+  return conteo;
+}
+function renderPrioridadMuscular(){
+  const conteo = volumenSemanal();
+  const filas = Object.entries(PRIORIDAD_MUSCULAR)
+    .sort((a,b)=>b[1].estrellas-a[1].estrellas);
+  let deficits = [];
+  let html = `<div class="section-title">Índice de Prioridad Muscular</div>
+    <div class="prio-intro">Series completadas en los últimos 7 días vs rango objetivo según impacto estético.</div>`;
+  filas.forEach(([grupo, cfg])=>{
+    const hechas = conteo[grupo] || 0;
+    const [minS, maxS] = cfg.series;
+    let estado, cls;
+    if(hechas < minS){ estado=`faltan ${minS-hechas}`; cls='bajo'; if(cfg.estrellas>=4) deficits.push({grupo, faltan:minS-hechas, estrellas:cfg.estrellas}); }
+    else if(hechas > maxS){ estado='sobre rango'; cls='sobre'; }
+    else { estado='en rango'; cls='ok'; }
+    const pct = Math.min((hechas/maxS)*100, 100);
+    html += `<div class="prio-row">
+      <div class="prio-top">
+        <span class="prio-name">${grupo} <span class="prio-stars">${'★'.repeat(cfg.estrellas)}${'☆'.repeat(5-cfg.estrellas)}</span></span>
+        <span class="prio-vol ${cls}">${hechas}/${minS}-${maxS} series · ${estado}</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${cls==='ok'?'var(--green)':cls==='bajo'?'var(--red)':'#ffb400'}"></div></div>
+      <div class="prio-nota">${cfg.nota}</div>
+    </div>`;
+  });
+  // recomendacion accionable
+  if(deficits.length){
+    deficits.sort((a,b)=>b.estrellas-a.estrellas || b.faltan-a.faltan);
+    const top = deficits.slice(0,2);
+    html += `<div class="prio-reco"><b>🎯 Mayor retorno esta semana:</b><br>`;
+    html += top.map(d=>`Añade <b>${d.faltan} series de ${d.grupo}</b> — ${'★'.repeat(d.estrellas)} de impacto estético`).join('<br>');
+    html += `</div>`;
+  } else {
+    html += `<div class="prio-reco ok"><b>✓ Volumen equilibrado</b><br>Todos los grupos de alta prioridad están en rango esta semana.</div>`;
+  }
+  return html;
+}
+
 function renderProgreso(){
-  let html = `<div class="section-title">Medidas Corporales (in / lb)</div>`;
+  let html = renderPrioridadMuscular();
+  html += `<div class="section-title">Medidas Corporales (in / lb)</div>`;
   if(!state.medidas.length){
     html += '<div class="loading">Sin medidas registradas</div>';
   } else {
@@ -1427,26 +1577,37 @@ function renderListaDia(){
     const hecho = registradosHoy.some(e=>normEj(e.ejercicio)===normEj(ej.nombre));
     const nSets = parseInt(ej.series)||3;
     const repsObj = parseInt(ej.reps)||10;
+    const prog = decisionProgresion(ej, ultimoReg);
+    const pesoSugerido = prog.sug || sug;
 
     let setsHtml = '';
     for(let s=1; s<=nSets; s++){
       setsHtml += `<div class="set-row" data-set="${s}">
         <span class="set-num">${s}</span>
-        <input type="number" class="set-peso" step="0.5" placeholder="${sug||'lb'}">
+        <input type="number" class="set-peso" step="0.5" placeholder="${pesoSugerido||'lb'}">
         <input type="number" class="set-reps" value="${repsObj}">
         <span class="set-check">○</span>
       </div>`;
     }
+
+    const rirHtml = `<div class="rir-wrap">
+      <span class="rir-label">RIR última serie:</span>
+      <div class="rir-btns">
+        ${[0,1,2,3,4].map(v=>`<button type="button" class="rir-btn" data-rir="${v}" onclick="setRir(this)">${v}</button>`).join('')}
+      </div>
+    </div>`;
 
     html += `<div class="lde ${hecho?'done':''}" data-o="${ej.o}" data-d="${ej.d}" data-nombre="${nombreCap}">
       <div class="lde-top" onclick="toggleExpand(this)" style="cursor:pointer">
         <span class="lde-name"><span class="ex-num">#${ej.o}</span>${nombreCap} ${hecho?'<span class="lde-check">✓</span>':''}</span>
         <span class="lde-arrow">▾</span>
       </div>
-      <div class="lde-meta">${ej.series}×${ej.reps} obj · ⏱${ej.desc || descansoRenfit(ej.nombre)}${ult?` · últ: ${fmt(ult)}lb`:''}${sug?` · <b style="color:var(--orange)">meta: ${sug}lb</b>`:' · calibrar'}</div>
+      <div class="lde-meta">${ej.series}×${ej.reps} obj · ⏱${ej.desc || descansoRenfit(ej.nombre)}${ult?` · últ: ${fmt(ult)}lb`:''}</div>
+      <div class="prog-banner ${prog.cls}">${prog.accion==='sube'?'▲':prog.accion==='baja'?'▼':prog.accion==='nuevo'?'●':'='} ${prog.txt}</div>
       <div class="sets-wrap">
         <div class="set-header"><span></span><span>LB</span><span>REPS</span><span></span></div>
         ${setsHtml}
+        ${rirHtml}
         <div class="set-actions">
           <button class="set-add" onclick="addSet(this)">+ Serie</button>
           <button class="lde-save" onclick="saveEjLista(this)">Guardar todas</button>
@@ -1478,11 +1639,20 @@ function addSet(btn){
   btn.parentElement.insertAdjacentElement('beforebegin', div);
 }
 
+function setRir(btn){
+  const wrap = btn.closest('.rir-wrap');
+  wrap.querySelectorAll('.rir-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  wrap.dataset.rir = btn.dataset.rir;
+}
+
 async function saveEjLista(btn){
   const row = btn.closest('.lde');
   const fecha = document.getElementById('ej-fecha').value;
   const nombre = row.dataset.nombre;
   const setRows = row.querySelectorAll('.set-row');
+  const rirWrap = row.querySelector('.rir-wrap');
+  const rir = rirWrap && rirWrap.dataset.rir !== undefined ? parseInt(rirWrap.dataset.rir) : null;
   const sets = [];
   setRows.forEach(sr => {
     const peso = parseFloat(sr.querySelector('.set-peso').value);
@@ -1504,6 +1674,7 @@ async function saveEjLista(btn){
     series: sets.length,
     reps: todasIguales ? repsModa : sets[sets.length-1].reps,
     peso: todasIguales ? pesoModa : sets[sets.length-1].peso,
+    rir: rir,
     notas: notaDetalle
   };
   const {error} = await sb.from('fenix_ejercicios').insert(data);
@@ -1511,7 +1682,7 @@ async function saveEjLista(btn){
   await loadAll();
   row.classList.add('done');
   setRows.forEach(sr=>sr.querySelector('.set-check').textContent='✓');
-  showToast(`${nombre} guardado ✓ (${sets.length} series)`);
+  showToast(`${nombre} guardado ✓ (${sets.length} series${rir!==null?', RIR '+rir:''})`);
 }
 
 async function saveLibre(){
