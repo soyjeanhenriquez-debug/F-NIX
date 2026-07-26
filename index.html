@@ -496,8 +496,8 @@ const MES2 = [
   {d:6,o:7,n:'Curl de Muñeca (opcional)',g:'Antebrazos',reps:'20',series:2,desc:'30-45s',hist:['curl muñeca']},
   {d:6,o:8,n:'Extension de Muñeca (opcional)',g:'Antebrazos',reps:'20',series:2,desc:'30-45s',hist:['extension muñeca']},
 ];
-const NOMBRES_DIA_M2 = {1:'Día 1 — Pecho + Bíceps',2:'Día 2 — Tren Inferior',3:'Día 3 — Espalda + Tríceps',4:'Día 4 — Tren Inferior',5:'Día 5 — Hombros + Brazos',6:'Día 6 — Domingo (Activación)'};
-const NOMBRES_DIA_M1 = {1:'Día 1 — Pecho + Tríceps',2:'Día 2 — Espalda + Bíceps',3:'Día 3 — Pierna Completa',4:'Día 4 — Brazos + Hombros',5:'Día 5 — Tren Inferior',6:'Día 6 — Domingo (Activación)'};
+const NOMBRES_DIA_M2 = {1:'Día 1 — Pecho + Bíceps',2:'Día 2 — Tren Inferior',3:'Día 3 — Espalda + Tríceps',4:'Día 4 — Tren Inferior',5:'Día 5 — Hombros + Brazos',6:'Día 6 — Hombro Post. + Abs + Piernas'};
+const NOMBRES_DIA_M1 = {1:'Día 1 — Pecho + Tríceps',2:'Día 2 — Espalda + Bíceps',3:'Día 3 — Pierna Completa',4:'Día 4 — Brazos + Hombros',5:'Día 5 — Tren Inferior',6:'Día 6 — Hombro Post. + Abs + Piernas'};
 function esMes2(fecha){ return (fecha||todayStr()) >= MES2_START; }
 function nombreDiaDe(fecha, diaReto){ return (esMes2(fecha)?NOMBRES_DIA_M2:NOMBRES_DIA_M1)[diaReto]; }
 // lista de ejercicios del dia, unificada Mes1/Mes2
