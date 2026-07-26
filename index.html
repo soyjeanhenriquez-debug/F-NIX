@@ -345,6 +345,7 @@ const RENFIT = {
   'elevaciones talones de pie maquina':{d:5,o:5,g:'Pantorrillas',reps:'10-12',series:4},
   'elevaciones talones de pie smith':{d:5,o:5,g:'Pantorrillas',reps:'10-12',series:4},
   'elevaciones talones sentado':{d:5,o:6,g:'Pantorrillas',reps:'8-12',series:5},
+  'abductores':{d:5,o:7,g:'Abductores',reps:'15',series:3},
   // ALIAS de nombres reales usados en registros que no matcheaban
   'chest press maquina':{d:1,o:2,g:'Pecho',reps:'12',series:4},
   'jalon al pecho supino':{d:2,o:1,g:'Espalda',reps:'8-10',series:4},
@@ -1144,6 +1145,15 @@ const renderers = { dashboard: renderDashboard, entrenamientos: renderEntrenamie
 function renderGuia(){
   const html = `
     <div class="section-title">Guía Fija — Reglas del Reto</div>
+
+    <div class="guia-card">
+      <div class="guia-h">📌 Cambio 25 jul — Abductores agregado a Día 5</div>
+      <ul class="guia-ul">
+        <li>Nuevo ejercicio #7 fijo del Día 5 (Tren Inferior): <b>Abductores</b></li>
+        <li>Baseline: <b>130lb × 3×15</b></li>
+        <li>Objetivo: 15 reps, progresión +5% cuando salga limpio</li>
+      </ul>
+    </div>
 
     <div class="guia-card">
       <div class="guia-h">📌 Cambio 21 jul — Front Pulldown agregado a Día 2</div>
