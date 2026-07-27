@@ -207,6 +207,15 @@
   .check-card.ssj-charge.ssj4{box-shadow:0 0 0 1px var(--border),0 0 36px 6px rgba(255,59,31,.45);}
   .check-card.ssj-charge.ssjb{box-shadow:0 0 0 1px var(--border),0 0 34px 6px rgba(56,189,248,.4);}
   @keyframes ssjShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
+  /* Vibracion de pantalla completa durante la transformacion */
+  .ssj-vibrate{animation:ssjVibrate .15s ease-in-out infinite;}
+  @keyframes ssjVibrate{
+    0%,100%{transform:translate(0,0) rotate(0deg)}
+    20%{transform:translate(-2px,2px) rotate(-1deg)}
+    40%{transform:translate(-3px,-1px) rotate(1.5deg)}
+    60%{transform:translate(3px,2px) rotate(-1.5deg)}
+    80%{transform:translate(1px,-3px) rotate(1deg)}
+  }
   @keyframes ssjFlicker{0%,100%{filter:brightness(1)}25%{filter:brightness(1.6)}50%{filter:brightness(.9)}75%{filter:brightness(1.5)}}
   .ssj-caption{position:fixed;top:36%;left:50%;transform:translate(-50%,-50%) scale(.5);z-index:302;font-weight:900;font-size:1.25rem;letter-spacing:.03em;text-align:center;width:88%;pointer-events:none;opacity:0;}
   .ssj-caption.ssj1{color:#ffd23f;text-shadow:0 0 10px rgba(255,210,63,.9),0 0 22px rgba(255,90,31,.6);}
@@ -1026,10 +1035,10 @@ function crearParticulasSSJ(x, y, colores, count, spread=140, riseMax=260){
 }
 // Escalera de transformaciones segun hitos del checklist diario (0-7)
 const SSJ_TIERS = {
-  ssj1: {rank:1, min:4, caption:'🔥 SUPER SAIYAN — 4/7',        colores:['ssj1'],          count:20},
-  ssj2: {rank:2, min:5, caption:'⚡ SUPER SAIYAN 2 — 5/7',       colores:['ssj2'],          count:28},
-  ssj4: {rank:3, min:6, caption:'💥 SUPER SAIYAN 4 — 6/7',       colores:['ssj4','ssj4b'],  count:32},
-  ssjb: {rank:4, min:7, caption:'💎 SUPER SAIYAN BLUE — 7/7',    colores:['ssjb'],          count:36},
+  ssj1: {rank:1, min:4, caption:'🔥 SUPER SAIYAN — 4/7',        colores:['ssj1'],          count:20, vibraMs:300},
+  ssj2: {rank:2, min:5, caption:'⚡ SUPER SAIYAN 2 — 5/7',       colores:['ssj2'],          count:28, vibraMs:400},
+  ssj4: {rank:3, min:6, caption:'💥 SUPER SAIYAN 4 — 6/7',       colores:['ssj4','ssj4b'],  count:32, vibraMs:500},
+  ssjb: {rank:4, min:7, caption:'💎 SUPER SAIYAN BLUE — 7/7',    colores:['ssjb'],          count:36, vibraMs:600},
 };
 function tierDeScore(score){
   if(score>=7) return 'ssjb';
@@ -1041,6 +1050,14 @@ function tierDeScore(score){
 function saiyanTransform(tier){
   const cfg = SSJ_TIERS[tier];
   if(!cfg) return;
+  // Vibracion visual de toda la pantalla + haptic real (Android/Chrome; iOS Safari la ignora sin romper nada)
+  document.documentElement.classList.add('ssj-vibrate');
+  setTimeout(()=>document.documentElement.classList.remove('ssj-vibrate'), cfg.vibraMs);
+  if(navigator.vibrate){
+    const patron = tier==='ssjb' ? [60,40,60,40,120] : tier==='ssj4' ? [50,30,50,30,90] : [40,30,70];
+    navigator.vibrate(patron);
+  }
+
   const flash = document.createElement('div');
   flash.className = 'ssj-flash '+tier+' show';
   document.body.appendChild(flash);
