@@ -123,6 +123,12 @@
   .guia-ul li{font-size:0.88rem;color:var(--sub);line-height:1.55;margin-bottom:4px;}
   .guia-ul li b{color:var(--text);}
   .entry.score-ok{border-left:3px solid var(--green);}
+  .menu-base-card{background:var(--card);border:1px solid var(--orange-dim);border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+  .menu-base-h{font-weight:700;color:var(--orange);margin-bottom:10px;font-size:0.95rem;}
+  .menu-base-momento{margin-bottom:8px;}
+  .menu-base-momento b{font-size:0.85rem;}
+  .menu-base-items{color:var(--sub);font-size:0.82rem;line-height:1.4;}
+  .menu-base-meta{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--sub);font-size:0.78rem;line-height:1.5;}
   .entry.score-ambar{border-left:3px solid #ffb400;}
   .entry.score-rojo{border-left:3px solid var(--red);}
   .score-badge{font-size:0.78rem;font-weight:800;padding:4px 10px;border-radius:8px;white-space:nowrap;}
@@ -335,6 +341,10 @@
         <div><label>Carbos (g)</label><input type="number" id="com-carb"></div>
         <div><label>Grasas (g)</label><input type="number" id="com-gra"></div>
       </div>
+      <div class="row2">
+        <div><label>Fibra (g)</label><input type="number" id="com-fibra"></div>
+        <div></div>
+      </div>
       <button class="save-btn" onclick="saveCom()">Guardar comida</button>
     </div>
 
@@ -458,6 +468,34 @@ function enMismoGrupo(nombreA, nombreB){
 // D4 Tren Inferior | D5 Tren Superior (Hombros+Brazos)
 // 'hist' = nombres del Mes 1 que cuentan como historial de ese ejercicio (para el ultimo peso)
 const MES2_START = '2026-07-27';
+
+// ---- PROTOCOLO NUTRICIONAL OFICIAL — Version 1.0 — Vigente 27 jul al 30 ago 2026 ----
+// Objetivo: maximizar perdida de grasa preservando masa muscular, con la menor fatiga
+// de decision posible. La app NO se autoajusta; solo propone cambios tras 2 semanas
+// de estancamiento real (peso+cintura), caida de rendimiento, o hambre/energia reportada.
+const NUTRICION_META = {
+  calMin:1600, calMax:1700,
+  protMin:175, protMax:190,
+  carbMin:95,  carbMax:115,
+  grasaMin:45, grasaMax:55,
+  fibraMin:25, fibraMax:30,
+  aguaMeta:4.5,
+};
+const MENU_BASE = [
+  {momento:'Ayuno', items:['Café sin azúcar','1.5L agua','2 cucharadas de chía']},
+  {momento:'Primera comida', items:['120g atún','2 huevos enteros','4 claras','50g avena','60g aguacate']},
+  {momento:'Post-entreno', items:['1 scoop Whey','5g Creatina']},
+  {momento:'Segunda comida', items:['230g pechuga de pollo','250g batata cocida','50g queso cottage','Ensalada grande (200-300g)','1 cucharada aceite de oliva']},
+  {momento:'Resto del día', items:['1.5L agua + 2 cucharadas de chía','1.5L agua adicional']},
+];
+const ALIMENTOS_BASE = ['Pechuga de pollo','Atún en agua','Huevos enteros','Claras de huevo','Proteína Whey','Queso Cottage','Avena','Batata','Aguacate','Chía','Verduras (lechuga, tomate, pepino, espinaca, brócoli, coliflor, pimientos y similares)'];
+function menuBaseHTML(){
+  return `<div class="menu-base-card">
+    <div class="menu-base-h">📋 Menú base — Protocolo Fénix v1.0</div>
+    ${MENU_BASE.map(b=>`<div class="menu-base-momento"><b>${b.momento}</b><div class="menu-base-items">${b.items.join(' · ')}</div></div>`).join('')}
+    <div class="menu-base-meta">Meta diaria: ${NUTRICION_META.calMin}-${NUTRICION_META.calMax} kcal · ${NUTRICION_META.protMin}-${NUTRICION_META.protMax}g prot · ${NUTRICION_META.carbMin}-${NUTRICION_META.carbMax}g carb · ${NUTRICION_META.grasaMin}-${NUTRICION_META.grasaMax}g grasa · ${NUTRICION_META.fibraMin}-${NUTRICION_META.fibraMax}g fibra · ${NUTRICION_META.aguaMeta}L agua</div>
+  </div>`;
+}
 const MES2 = [
   // ---- DIA 1: Pecho + Biceps + Hombro ----
   {d:1,o:1,n:'Press Plano con Mancuernas',g:'Pecho',reps:'8-10',series:4,desc:'90-120s',hist:[]},
@@ -901,12 +939,13 @@ function aguaTracker(){
   const hoy = todayStr();
   const dia = state.dias.find(d=>d.fecha===hoy);
   const actual = dia && dia.agua!==null ? dia.agua : 0;
-  const pct = Math.min((actual/4)*100,100);
-  const color = actual>=4?'var(--green)':(actual>=3?'var(--orange)':'var(--red)');
+  const meta = NUTRICION_META.aguaMeta;
+  const pct = Math.min((actual/meta)*100,100);
+  const color = actual>=meta?'var(--green)':(actual>=meta-1?'var(--orange)':'var(--red)');
   return `<div class="agua-card">
     <div class="agua-top">
       <span class="agua-label">💧 Agua hoy</span>
-      <span class="agua-val" style="color:${color}">${fmt(actual)}L <span style="color:var(--sub);font-size:0.9rem;">/ 4L</span></span>
+      <span class="agua-val" style="color:${color}">${fmt(actual)}L <span style="color:var(--sub);font-size:0.9rem;">/ ${meta}L</span></span>
     </div>
     <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
     <div class="agua-btns">
@@ -969,13 +1008,12 @@ function checklistDiario(){
   const calHoy = comidasHoy.reduce((s,c)=>s+(Number(c.calorias)||0),0);
   const protHoy = comidasHoy.reduce((s,c)=>s+(Number(c.proteina)||0),0);
   const ejerHoy = state.ejercicios.filter(e=>e.fecha===hoy);
-  const esGym = ejerHoy.some(e=>renfitInfo(e.ejercicio));
-  const techo = esGym ? 1800 : 1600;
+  const techo = NUTRICION_META.calMax;
   // cardio: hay registro de cardio hoy con >15min (buscamos en notas "min")
   const cardioHoy = ejerHoy.find(e=>esCardio(e.ejercicio));
   // AUTO checks
   const cCal = calHoy > 0 && calHoy <= techo;
-  const cProt = protHoy >= 170;
+  const cProt = protHoy >= NUTRICION_META.protMin;
   const cCardio = !!cardioHoy; // registro de cardio = hecho (zona 2 >15min)
   // MANUAL checks
   const cEntreno = !!h.entreno;
@@ -985,7 +1023,7 @@ function checklistDiario(){
 
   const items = [
     {k:'cal', auto:true, on:cCal, txt:`Calorías ${fmt(calHoy,0)}/${techo}`, ic:'🔥'},
-    {k:'prot', auto:true, on:cProt, txt:`Proteína ${fmt(protHoy,0)}/170g`, ic:'🍗'},
+    {k:'prot', auto:true, on:cProt, txt:`Proteína ${fmt(protHoy,0)}/${NUTRICION_META.protMin}g`, ic:'🍗'},
     {k:'entreno', auto:false, on:cEntreno, txt:'Fuerza con intensidad', ic:'💪'},
     {k:'sueno', auto:false, on:cSueno, txt:'Dormir 7.5-8h', ic:'😴'},
     {k:'pasos', auto:false, on:cPasos, txt:'8,000-10,000 pasos', ic:'👟'},
@@ -1017,10 +1055,8 @@ function scoreChecklistHoy(){
   const calHoy = comidasHoy.reduce((s,c)=>s+(Number(c.calorias)||0),0);
   const protHoy = comidasHoy.reduce((s,c)=>s+(Number(c.proteina)||0),0);
   const ejerHoy = state.ejercicios.filter(e=>e.fecha===hoy);
-  const esGym = ejerHoy.some(e=>renfitInfo(e.ejercicio));
-  const techo = esGym ? 1800 : 1600;
   const cardioHoy = ejerHoy.find(e=>esCardio(e.ejercicio));
-  return [calHoy>0 && calHoy<=techo, protHoy>=170, !!h.entreno, !!h.sueno, !!h.pasos, !!cardioHoy, !!h.suplementos]
+  return [calHoy>0 && calHoy<=NUTRICION_META.calMax, protHoy>=NUTRICION_META.protMin, !!h.entreno, !!h.sueno, !!h.pasos, !!cardioHoy, !!h.suplementos]
     .filter(Boolean).length;
 }
 function crearParticulasSSJ(x, y, colores, count, spread=140, riseMax=260){
@@ -1399,6 +1435,7 @@ function renderNutricion(){
   const ordenMomento = {desayuno:1,almuerzo:2,comida:2,snack:3,cena:4,merienda:3};
 
   let html = `<div class="section-title">Nutrición</div>`;
+  html += menuBaseHTML();
   dates.forEach(fecha => {
     const items = byDate[fecha].slice().sort((a,b)=>{
       const oa=ordenMomento[a.momento.toLowerCase()]||9, ob=ordenMomento[b.momento.toLowerCase()]||9;
@@ -1406,12 +1443,13 @@ function renderNutricion(){
     });
     const totalCal = items.reduce((s,i)=>s+(Number(i.calorias)||0),0);
     const totalProt = items.reduce((s,i)=>s+(Number(i.proteina)||0),0);
+    const totalFibra = items.reduce((s,i)=>s+(Number(i.fibra)||0),0);
     const esGym = diasConPesas.has(fecha);
-    const techo = esGym ? 1800 : 1600;
+    const techo = fecha >= MES2_START ? NUTRICION_META.calMax : (esGym ? 1800 : 1600);
     const hizoEjercicio = esGym || diasConCardio.has(fecha) || diasConNota.has(fecha);
 
     // --- SCORE DEL DIA (rangos escalonados, no todo-o-nada) ---
-    const metaProt = fecha >= '2026-07-09' ? 170 : 150;
+    const metaProt = fecha >= MES2_START ? NUTRICION_META.protMin : (fecha >= '2026-07-09' ? 170 : 150);
     // proteina: verde >=meta, ambar >=meta-20 (ej 150-169), rojo <meta-20
     let protEstado = totalProt>=metaProt ? 'y' : (totalProt>=metaProt-20 ? 'm' : 'n');
     // calorias: verde dentro de techo (hasta 5% bajo tambien ok), ambar 5-15% sobre, rojo mas de 15% sobre o muy bajo
@@ -1444,6 +1482,7 @@ function renderNutricion(){
         <span class="chk ${cEj?'y':'n'}">${cEj?'✓':'✗'} Ejercicio</span>
         <span class="chk ${protEstado}">${chkIcon(protEstado)} Proteína ${fmt(totalProt,0)}g</span>
         <span class="chk ${calEstado}">${chkIcon(calEstado)} ${fmt(totalCal,0)}/${techo} kcal</span>
+        ${totalFibra>0?`<span class="chk ${totalFibra>=NUTRICION_META.fibraMin?'y':'m'}">🌾 Fibra ${fmt(totalFibra,0)}g</span>`:''}
       </div>`;
     if(faltan.length){
       html += `<div class="faltan">⚠️ Falta registrar: ${faltan.join(', ')}</div>`;
@@ -1455,6 +1494,7 @@ function renderNutricion(){
         <span class="macro">Prot: <b>${fmt(c.proteina,0)}g</b></span>
         <span class="macro">Carb: <b>${c.carbos!==null?fmt(c.carbos,0)+'g':'—'}</b></span>
         <span class="macro">Grasa: <b>${c.grasas!==null?fmt(c.grasas,0)+'g':'—'}</b></span>
+        ${c.fibra!==null&&c.fibra!==undefined?`<span class="macro">Fibra: <b>${fmt(c.fibra,0)}g</b></span>`:''}
       </div>`;
     });
     html += `</div>`;
@@ -2021,7 +2061,8 @@ async function saveCom(){
     calorias: parseFloat(document.getElementById('com-cal').value)||null,
     proteina: parseFloat(document.getElementById('com-prot').value)||null,
     carbos: parseFloat(document.getElementById('com-carb').value)||null,
-    grasas: parseFloat(document.getElementById('com-gra').value)||null
+    grasas: parseFloat(document.getElementById('com-gra').value)||null,
+    fibra: parseFloat(document.getElementById('com-fibra').value)||null
   };
   if(!row.comida){ showToast('Falta la comida'); return; }
   // anti-duplicado: ya existe ese momento ese dia?
@@ -2031,13 +2072,13 @@ async function saveCom(){
     if(corregir){
       const {error} = await sb.from('fenix_comidas').update(row).eq('id', existente.id);
       if(error){ showToast('Error: '+error.message); return; }
-      ['com-comida','com-cal','com-prot','com-carb','com-gra'].forEach(id=>document.getElementById(id).value='');
+      ['com-comida','com-cal','com-prot','com-carb','com-gra','com-fibra'].forEach(id=>document.getElementById(id).value='');
       await loadAll(); actualizarFaltanHoy(); showToast('Comida corregida ✓'); return;
     }
   }
   const {error} = await sb.from('fenix_comidas').insert(row);
   if(error){ showToast('Error: '+error.message); return; }
-  ['com-comida','com-cal','com-prot','com-carb','com-gra'].forEach(id=>document.getElementById(id).value='');
+  ['com-comida','com-cal','com-prot','com-carb','com-gra','com-fibra'].forEach(id=>document.getElementById(id).value='');
   await loadAll(); actualizarFaltanHoy(); showToast('Comida guardada ✓');
 }
 
