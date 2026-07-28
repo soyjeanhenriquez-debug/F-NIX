@@ -31,7 +31,8 @@
   .value.orange{color:var(--orange);}
   .value.green{color:var(--green);}
   .value.red{color:var(--red);}
-  .bar-bg{height:6px;background:#262626;border-radius:3px;margin-top:8px;overflow:hidden;}
+  .bar-bg{height:6px;background:#262626;border-radius:3px;margin-top:8px;overflow:hidden;position:relative;}
+  .bar-min-marker{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,.55);}
   .bar-fill{height:100%;background:var(--orange);}
   .section-title{font-size:1.1rem;font-weight:700;margin:24px 0 12px;}
   .entry{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;}
@@ -273,6 +274,9 @@
   .rir-feedback.duro{background:rgba(255,180,0,0.13);color:#ffb400;}
   .rir-feedback.facil{background:rgba(255,90,31,0.12);color:var(--orange);}
   .prio-intro{font-size:0.8rem;color:var(--sub);margin-bottom:12px;line-height:1.4;}
+  .prio-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;}
+  .prio-legend-item{display:flex;align-items:center;gap:6px;font-size:0.76rem;color:var(--sub);}
+  .prio-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   .prio-row{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
   .prio-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:7px;}
   .prio-name{font-weight:700;font-size:0.92rem;}
@@ -1588,7 +1592,12 @@ function renderPrioridadMuscular(){
   let deficits = [];
   let unaVez = [];
   let html = `<div class="section-title">Índice de Prioridad Muscular</div>
-    <div class="prio-intro">Series completadas en los últimos 7 días vs rango objetivo según impacto estético.</div>`;
+    <div class="prio-intro">Series completadas en los últimos 7 días vs rango objetivo según impacto estético.</div>
+    <div class="prio-legend">
+      <span class="prio-legend-item"><span class="prio-dot" style="background:var(--red)"></span>Falta volumen</span>
+      <span class="prio-legend-item"><span class="prio-dot" style="background:var(--green)"></span>En el punto justo</span>
+      <span class="prio-legend-item"><span class="prio-dot" style="background:#ffb400"></span>Ya es de más</span>
+    </div>`;
   filas.forEach(([grupo, cfg])=>{
     const hechas = conteo[grupo] ? conteo[grupo].series : 0;
     const frec = conteo[grupo] ? conteo[grupo].fechas.size : 0;
@@ -1604,7 +1613,7 @@ function renderPrioridadMuscular(){
         <span class="prio-name" style="display:flex;align-items:center;gap:8px">${iconMusculoSVG(grupo)}<span>${grupo} <span class="prio-stars">${'★'.repeat(cfg.estrellas)}${'☆'.repeat(5-cfg.estrellas)}</span></span></span>
         <span class="prio-vol ${cls}">${hechas}/${minS}-${maxS} series · ${estado}${frec?` <span style="padding:1px 6px;border-radius:4px;font-size:.85em;background:${frec>=2?'rgba(0,200,120,.15)':'rgba(255,80,80,.18)'};color:${frec>=2?'var(--green)':'var(--red)'}">${frec}x/sem</span>`:''}</span>
       </div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${cls==='ok'?'var(--green)':cls==='bajo'?'var(--red)':'#ffb400'}"></div></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${cls==='ok'?'var(--green)':cls==='bajo'?'var(--red)':'#ffb400'}"></div><div class="bar-min-marker" style="left:${(minS/maxS)*100}%"></div></div>
       <div class="prio-nota">${cfg.nota}</div>
     </div>`;
   });
