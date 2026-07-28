@@ -1345,8 +1345,16 @@ function renderEntrenamientos(){
   const dates = [...allDates].sort().reverse();
 
   function prevPeso(nombre, fecha){
+    // reconoce el mismo ejercicio aunque el nombre exacto cambie entre Mes1 y Mes2
+    // (ej "Fly En Maquina" hoy = "Fly Maquina" en Mes1), usando los alias de MES2.hist
+    const aliases = new Set([normEj(nombre)]);
+    const info = diaInfoDe(nombre);
+    if(info){
+      if(info.n) aliases.add(normEj(info.n));
+      if(info.hist) info.hist.forEach(h=>aliases.add(normEj(h)));
+    }
     const hist = state.ejercicios
-      .filter(e => normEj(e.ejercicio)===normEj(nombre) && e.peso && e.fecha < fecha)
+      .filter(e => aliases.has(normEj(e.ejercicio)) && e.peso && e.fecha < fecha)
       .sort((a,b)=>b.fecha.localeCompare(a.fecha));
     return hist.length ? hist[0] : null;
   }
