@@ -668,6 +668,15 @@ function normEj(nombre){
   return nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 }
 function renfitInfo(nombre){ return RENFIT[normEj(nombre)] || null; }
+// Version unificada: RENFIT es solo el diccionario de Mes1. Para que el orden de
+// ejecucion, el numero #o y el objetivo de reps funcionen tambien en Mes2, hay que
+// buscar ademas en el arreglo MES2 (por nombre exacto o por sus alias en hist[]).
+function diaInfoDe(nombre){
+  const legacy = RENFIT[normEj(nombre)];
+  if(legacy) return legacy;
+  const ne = normEj(nombre);
+  return MES2.find(m => normEj(m.n)===ne || (m.hist && m.hist.some(h=>normEj(h)===ne))) || null;
+}
 
 // descanso oficial Renfit: basicos pesados 90-120s, resto 60-90s
 function descansoRenfit(nombre){
@@ -1351,11 +1360,11 @@ function renderEntrenamientos(){
     const cardio = items.filter(e => esCardio(e.ejercicio));
     // ordenar pesas por indice Renfit (los que no matchean van al final)
     pesas.sort((a,b)=>{
-      const ra=renfitInfo(a.ejercicio), rb=renfitInfo(b.ejercicio);
+      const ra=diaInfoDe(a.ejercicio), rb=diaInfoDe(b.ejercicio);
       if(ra&&rb) return ra.o-rb.o;
       if(ra) return -1; if(rb) return 1; return 0;
     });
-    const diaReto = pesas.length && renfitInfo(pesas[0].ejercicio) ? renfitInfo(pesas[0].ejercicio).d : null;
+    const diaReto = pesas.length && diaInfoDe(pesas[0].ejercicio) ? diaInfoDe(pesas[0].ejercicio).d : null;
 
     html += `<div class="entry"><div class="entry-date">${fecha}`;
     if(!pesas.length) html += `<span class="day-badge">DESCANSO / CARDIO</span>`;
@@ -1363,7 +1372,7 @@ function renderEntrenamientos(){
     html += `</div>`;
 
     pesas.forEach(e => {
-      const rf = renfitInfo(e.ejercicio);
+      const rf = diaInfoDe(e.ejercicio);
       let prog = '';
       if(e.peso){
         const prev = prevPeso(e.ejercicio, fecha);
