@@ -288,6 +288,7 @@
   .prio-nota{font-size:0.74rem;color:var(--sub);margin-top:6px;line-height:1.35;}
   .prio-reco{background:linear-gradient(135deg,rgba(255,90,31,0.14),rgba(255,90,31,0.04));border:1px solid var(--orange-dim);border-radius:12px;padding:14px;margin:12px 0 20px;font-size:0.85rem;line-height:1.5;}
   .prio-reco.ok{background:rgba(62,207,122,0.1);border-color:rgba(62,207,122,0.3);}
+  .prio-reco.roi{background:rgba(56,132,255,0.1);border-color:rgba(56,132,255,0.3);}
   .set-actions{display:flex;gap:8px;margin-top:10px;}
   .set-add{flex:1;padding:10px;background:#0a0a0a;border:1px dashed var(--orange);color:var(--orange);border-radius:9px;font-weight:700;cursor:pointer;font-size:0.88rem;}
   .lde-save{padding:10px 16px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;}
@@ -1593,6 +1594,7 @@ function renderPrioridadMuscular(){
     .sort((a,b)=>b[1].estrellas-a[1].estrellas);
   let deficits = [];
   let unaVez = [];
+  let resumen = [];
   let html = `<div class="section-title">Índice de Prioridad Muscular</div>
     <div class="prio-intro">Series completadas en los últimos 7 días vs rango objetivo según impacto estético.</div>
     <div class="prio-legend">
@@ -1609,6 +1611,7 @@ function renderPrioridadMuscular(){
     else if(hechas > maxS){ estado='sobre rango'; cls='sobre'; }
     else { estado='en rango'; cls='ok'; }
     if(frec===1 && cfg.estrellas>=4) unaVez.push(grupo);
+    resumen.push({grupo, hechas, estrellas:cfg.estrellas, cls, minS, maxS});
     const pct = Math.min((hechas/maxS)*100, 100);
     html += `<div class="prio-row">
       <div class="prio-top">
@@ -1630,7 +1633,33 @@ function renderPrioridadMuscular(){
     html += `<div class="prio-reco ok"><b>✓ Volumen equilibrado</b><br>Todos los grupos de alta prioridad están en rango esta semana.</div>`;
   }
   if(unaVez.length){
-    html += `<div class="prio-reco"><b>🔁 Frecuencia baja:</b><br>${unaVez.join(', ')} solo ${unaVez.length>1?'aparecen':'aparece'} 1 día esta semana. En déficit conviene repartir el mismo volumen en 2 sesiones — mismas series, mejor retención.</div>`;
+    html += `<div class="prio-reco">🔁 <b>Frecuencia baja:</b><br>${unaVez.join(', ')} solo ${unaVez.length>1?'aparecen':'aparece'} 1 día esta semana. En déficit conviene repartir el mismo volumen en 2 sesiones — mismas series, mejor retención.</div>`;
+  }
+
+  // ---- ROI del volumen: comparar grupos entre si, no solo listarlos por separado ----
+  // En deficit el recurso escaso es la recuperacion, no las ganas. Cada serie de mas en
+  // un grupo saturado es recuperacion que no se invirtio en un grupo que si la necesita.
+  const totalSeries = resumen.reduce((s,r)=>s+r.hechas, 0);
+  if(totalSeries > 0){
+    // 1) Reasignacion: el grupo con mayor exceso (series por encima de su propio rango)
+    //    comparado contra el grupo con mas margen real para crecer (mayor prioridad con espacio).
+    const sobre = resumen.filter(r=>r.cls==='sobre').map(r=>({...r, exceso:r.hechas-r.maxS})).sort((a,b)=>b.exceso-a.exceso);
+    const conMargen = resumen.filter(r=>r.hechas<r.maxS).sort((a,b)=>(b.estrellas-a.estrellas) || ((b.maxS-b.hechas)-(a.maxS-a.hechas)));
+    if(sobre.length && conMargen.length && sobre[0].grupo!==conMargen[0].grupo){
+      const s = sobre[0], m = conMargen[0];
+      html += `<div class="prio-reco roi"><b>⚖️ ROI bajo ahora mismo:</b><br>
+        Las próximas <b>${s.exceso} series de ${s.grupo}</b> van a rendir menos cambio visual que esas mismas series metidas en <b>${m.grupo}</b> (${'★'.repeat(m.estrellas)}, todavía tiene ${m.maxS-m.hechas} series de margen antes de saturarse).</div>`;
+    }
+    // 2) Presupuesto de recuperacion: grupo de baja prioridad que se esta comiendo una
+    //    parte grande del volumen total de la semana, sin retorno estetico proporcional.
+    const bajoValor = resumen.filter(r=>r.estrellas<=2 && r.hechas>0)
+      .map(r=>({...r, pct: (r.hechas/totalSeries)*100}))
+      .sort((a,b)=>b.pct-a.pct);
+    if(bajoValor.length && bajoValor[0].pct >= 12){
+      const b = bajoValor[0];
+      html += `<div class="prio-reco roi"><b>📊 Presupuesto de recuperación:</b><br>
+        Esta semana <b>${fmt(b.pct,0)}% de tus series totales</b> fueron para <b>${b.grupo}</b> (${'★'.repeat(b.estrellas)}${'☆'.repeat(5-b.estrellas)} de prioridad). Para un objetivo estético en pocas semanas, ese volumen rinde más repartido en zonas de mayor impacto.</div>`;
+    }
   }
   return html;
 }
