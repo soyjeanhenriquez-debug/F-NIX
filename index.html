@@ -1214,6 +1214,18 @@ function ritmoObjetivo(){
   </div>`;
 }
 
+// La proteina real se registra por comida (fenix_comidas), no en el campo manual
+// fenix_dias.proteina (que casi nunca se usa y se quedo con datos viejos de junio).
+// Esta funcion agrupa comidas por dia y promedia esos totales diarios.
+function promedioProteinaDiaria(){
+  const porDia = {};
+  state.comidas.forEach(c=>{
+    if(c.proteina===null || c.proteina===undefined) return;
+    porDia[c.fecha] = (porDia[c.fecha]||0) + Number(c.proteina);
+  });
+  const totales = Object.values(porDia);
+  return totales.length ? totales.reduce((a,b)=>a+b,0)/totales.length : null;
+}
 function headerRecomendaciones(){
   const tips = [];
   // agua
@@ -1227,8 +1239,7 @@ function headerRecomendaciones(){
     if(dG < 0) tips.push({ic:'🔥',t:`Grasa bajó ${fmt(Math.abs(dG))} pts y masa magra subió. Estás recomponiendo — no mires solo la báscula, el peso plano no es estancamiento.`});
   }
   // proteina
-  const prots = state.dias.filter(d=>d.proteina!==null).map(d=>d.proteina);
-  const protProm = prots.length ? prots.reduce((a,b)=>a+b,0)/prots.length : null;
+  const protProm = promedioProteinaDiaria();
   if(protProm!==null && protProm > 230) tips.push({ic:'⚠️',t:`Proteína promedio ${fmt(protProm,0)}g — sobre el techo util de 230g. El exceso no construye más músculo, es gasto sin retorno.`});
 
   if(!tips.length) return '';
@@ -1246,8 +1257,7 @@ function renderDashboard(){
   const diasReto = state.dias.filter(d => d.fecha >= RETO_START).length;
   const diasPre = state.dias.filter(d => d.fecha < RETO_START).length;
   const diaActual = daysSinceStart();
-  const proteinas = state.dias.filter(d => d.proteina !== null).map(d => d.proteina);
-  const proteinaProm = proteinas.length ? proteinas.reduce((a,b)=>a+b,0)/proteinas.length : null;
+  const proteinaProm = promedioProteinaDiaria();
   const aguas = state.dias.filter(d => d.agua !== null).map(d => d.agua);
   const aguaProm = aguas.length ? aguas.reduce((a,b)=>a+b,0)/aguas.length : null;
   const bajadaPct = bajadaTotal !== null ? Math.min(Math.max((bajadaTotal / (BASELINE_LB - META_LB)) * 100, 0), 100) : 0;
