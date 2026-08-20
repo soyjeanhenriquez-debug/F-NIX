@@ -1209,7 +1209,7 @@ function ritmoObjetivo(){
       <div class="ritmo-box"><div class="ritmo-lbl">Vas (media 7d)</div><div class="ritmo-val" style="color:${enRitmo?'var(--green)':'var(--red)'}">${fmt(pesoReal)} lb</div><div class="ritmo-lbl" style="opacity:.6">báscula hoy ${fmt(pesoBascula)}</div></div>
       <div class="ritmo-box"><div class="ritmo-lbl">Meta sem ${semanaActual}</div><div class="ritmo-val">${fmt(objSemana)} lb</div></div>
     </div>
-    <div class="ritmo-msg ${enRitmo?'ok':'off'}">${enRitmo?'✓ En ritmo o adelantado':`⚠️ ${fmt(Math.abs(diff))} lb por encima del ritmo — aprieta déficit y agua`}</div>
+    <div class="ritmo-msg ${enRitmo?'ok':(perdiendoMusculo && ritmoReal>1.30)?'off':'off'}">${enRitmo?'✓ En ritmo o adelantado':(perdiendoMusculo && ritmoReal>1.30)?`⚠️ ${fmt(Math.abs(diff))} lb por encima del ritmo, PERO tu masa magra ya está bajando — no aprietes el déficit, sube 100-150 kcal/día (ver aviso de abajo)`:`⚠️ ${fmt(Math.abs(diff))} lb por encima del ritmo — aprieta déficit y agua`}</div>
     <div class="ritmo-msg ${ritmoCls}" style="margin-top:6px">${ritmoMsg}</div>
   </div>`;
 }
