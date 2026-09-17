@@ -428,6 +428,20 @@ function key_display(nombreOriginal){
 
 let state = { dias: [], ejercicios: [], comidas: [], medidas: [], habitos: [], biblioteca: [], rutinas: [], rutinaEjs: [] };
 
+// ---- USUARIO ACTIVO (namespacing simple para demo, sin login) ----
+const USUARIOS = { jean: 'Jean', demo: 'Alumno Demo' };
+function usuarioActual(){ return localStorage.getItem('fenix_usuario') || 'jean'; }
+function setUsuario(u){
+  if(!USUARIOS[u]) return;
+  localStorage.setItem('fenix_usuario', u);
+  location.reload();
+}
+function usuarioSwitcherHTML(){
+  const actual = usuarioActual();
+  return `<div class="usr-switch">${Object.entries(USUARIOS).map(([k,v])=>
+    `<span class="usr-pill ${k===actual?'on':''}" onclick="setUsuario('${k}')">${v}</span>`).join('')}</div>`;
+}
+
 function daysSinceStart(){
   const now = new Date();
   const diff = Math.floor((now - PROJECT_START) / 86400000) + 1;
@@ -440,12 +454,13 @@ function fmt(n, d=1){
 }
 
 async function loadAll(){
+  const u = usuarioActual();
   const [dias, ejercicios, comidas, medidas, habitos, biblioteca, rutinas, rutinaEjs] = await Promise.all([
-    sb.from('fenix_dias').select('*').order('fecha'),
-    sb.from('fenix_ejercicios').select('*').order('fecha', {ascending:false}),
-    sb.from('fenix_comidas').select('*').order('fecha', {ascending:false}),
-    sb.from('fenix_medidas').select('*').order('fecha'),
-    sb.from('fenix_habitos').select('*'),
+    sb.from('fenix_dias').select('*').eq('usuario', u).order('fecha'),
+    sb.from('fenix_ejercicios').select('*').eq('usuario', u).order('fecha', {ascending:false}),
+    sb.from('fenix_comidas').select('*').eq('usuario', u).order('fecha', {ascending:false}),
+    sb.from('fenix_medidas').select('*').eq('usuario', u).order('fecha'),
+    sb.from('fenix_habitos').select('*').eq('usuario', u),
     sb.from('fenix_biblioteca').select('*').order('nombre_es'),
     sb.from('fenix_rutinas').select('*').order('orden').order('id'),
     sb.from('fenix_rutina_ejercicios').select('*').order('orden')
@@ -608,7 +623,7 @@ async function addAgua(delta){
   const dia = state.dias.find(d=>d.fecha===hoy);
   const actual = dia && dia.agua!==null ? dia.agua : 0;
   const nuevo = Math.max(0, Math.round((actual+delta)*100)/100);
-  const {error} = await sb.from('fenix_dias').upsert({fecha:hoy, agua:nuevo}, {onConflict:'fecha'});
+  const {error} = await sb.from('fenix_dias').upsert({fecha:hoy, agua:nuevo, usuario:usuarioActual()}, {onConflict:'fecha,usuario'});
   if(error){ showToast('Error: '+error.message); return; }
   await loadAll();
   renderDashboard();
@@ -639,7 +654,7 @@ async function toggleHipo(){
   const hoy = todayStr();
   const h = state.habitos.find(x=>x.fecha===hoy);
   const nuevo = !(h && h.hipopresivos);
-  const {error} = await sb.from('fenix_habitos').upsert({fecha:hoy, hipopresivos:nuevo}, {onConflict:'fecha'});
+  const {error} = await sb.from('fenix_habitos').upsert({fecha:hoy, hipopresivos:nuevo, usuario:usuarioActual()}, {onConflict:'fecha,usuario'});
   if(error){ showToast('Error: '+error.message); return; }
   await loadAll(); renderDashboard();
   if(nuevo) showToast('Hipopresivos ✓');
@@ -780,7 +795,7 @@ async function toggleHabito(campo, ev){
     origen = {x:r.left+r.width/2, y:r.top+r.height/2};
   }
   const scoreAntes = scoreChecklistHoy();
-  const {error} = await sb.from('fenix_habitos').upsert({fecha:hoy, [col]:nuevo}, {onConflict:'fecha'});
+  const {error} = await sb.from('fenix_habitos').upsert({fecha:hoy, [col]:nuevo, usuario:usuarioActual()}, {onConflict:'fecha,usuario'});
   if(error){ showToast('Error: '+error.message); return; }
   await loadAll(); renderDashboard();
   if(nuevo && origen) crearParticulasSSJ(origen.x, origen.y, 'ssj1', 6, 40, 90);
@@ -1678,7 +1693,8 @@ async function saveEjLista(btn){
     reps: todasIguales ? repsModa : sets[sets.length-1].reps,
     peso: todasIguales ? pesoModa : sets[sets.length-1].peso,
     rir: rir,
-    notas: notaDetalle
+    notas: notaDetalle,
+    usuario: usuarioActual()
   };
   const {error} = await sb.from('fenix_ejercicios').insert(data);
   if(error){ showToast('Error: '+error.message); return; }
@@ -1692,7 +1708,7 @@ async function saveLibre(){
   const nombre = document.getElementById('ej-libre-nombre').value.trim();
   const notas = document.getElementById('ej-libre-notas').value.trim();
   if(!nombre){ showToast('Falta la actividad'); return; }
-  const {error} = await sb.from('fenix_ejercicios').insert({fecha:document.getElementById('ej-fecha').value, ejercicio:nombre, series:1, reps:null, peso:null, notas:notas||null});
+  const {error} = await sb.from('fenix_ejercicios').insert({fecha:document.getElementById('ej-fecha').value, ejercicio:nombre, series:1, reps:null, peso:null, notas:notas||null, usuario:usuarioActual()});
   if(error){ showToast('Error: '+error.message); return; }
   document.getElementById('ej-libre-nombre').value='';
   document.getElementById('ej-libre-notas').value='';
@@ -1763,7 +1779,8 @@ async function saveCom(){
     proteina: parseFloat(document.getElementById('com-prot').value)||null,
     carbos: parseFloat(document.getElementById('com-carb').value)||null,
     grasas: parseFloat(document.getElementById('com-gra').value)||null,
-    fibra: parseFloat(document.getElementById('com-fibra').value)||null
+    fibra: parseFloat(document.getElementById('com-fibra').value)||null,
+    usuario: usuarioActual()
   };
   if(!row.comida){ showToast('Falta la comida'); return; }
   // anti-duplicado: ya existe ese momento ese dia?
@@ -1790,9 +1807,10 @@ async function saveDia(){
     agua: parseFloat(document.getElementById('dia-agua').value)||null,
     proteina: parseFloat(document.getElementById('dia-prot').value)||null,
     calorias: parseFloat(document.getElementById('dia-cal').value)||null,
-    notas: document.getElementById('dia-notas').value.trim()||null
+    notas: document.getElementById('dia-notas').value.trim()||null,
+    usuario: usuarioActual()
   };
-  const {error} = await sb.from('fenix_dias').upsert(row, {onConflict:'fecha'});
+  const {error} = await sb.from('fenix_dias').upsert(row, {onConflict:'fecha,usuario'});
   if(error){ showToast('Error: '+error.message); return; }
   ['dia-peso','dia-agua','dia-prot','dia-cal','dia-notas'].forEach(id=>document.getElementById(id).value='');
   await loadAll(); showToast('Día guardado ✓');
@@ -1801,6 +1819,8 @@ async function saveDia(){
 async function init(){
   renderDayCounter();
   setInterval(renderDayCounter, 1000);
+  const wrap = document.getElementById('usrSwitchWrap');
+  if(wrap) wrap.innerHTML = usuarioSwitcherHTML();
   await loadAll();
   renderDashboard();
   setupPullToRefresh();
